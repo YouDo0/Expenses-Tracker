@@ -42,35 +42,43 @@ The Expenses Tracker is a WhatsApp-integrated expense management application tha
 ## 2. Technology Stack
 
 ### 2.1 Backend
-- **Language**: Python 3.9+
-- **Framework**: Flask or FastAPI (RESTful API)
-- **Runtime**: Serverless Functions (Vercel) or Container-based deployment
+- **Language**: Node.js 18+ (JavaScript/TypeScript)
+- **Runtime**: Long-running process (required for WhatsApp Web session)
+- **Architecture**: Event-driven, single process
 
 ### 2.2 Database
 - **Primary Database**: PostgreSQL
 - **Hosting Options**:
-  - Vercel Postgres (if using Vercel)
-  - External PostgreSQL service (Supabase, Neon, Railway, AWS RDS)
-- **ORM/Query Builder**: SQLAlchemy or asyncpg (for async operations)
+  - Local PostgreSQL
+- **ORM/Query Builder**: Prisma or pg (node-postgres)
 
 ### 2.3 WhatsApp Integration
-- **Service Provider**: Twilio API for WhatsApp Business
-- **Communication Protocol**: Twilio WhatsApp API (Webhooks)
-- **Message Processing**: Natural Language Processing (NLP) libraries
+- **Library**: [whatsapp-web.js](https://github.com/pedroslopez/whatsapp-web.js) (wwebjs)
+- **Connection Method**: WhatsApp Web browser automation via Puppeteer
+- **Authentication**: QR Code scan (like WhatsApp Web)
+- **Session Storage**: Local authentication for persistent sessions
 
 ### 2.4 Natural Language Processing
-- **Libraries**: spaCy, NLTK, or OpenAI API for intent recognition and entity extraction
-- **Approach**: Rule-based parsing with ML-enhanced entity extraction
+- **Approach**: Rule-based parsing with regex patterns
+- **Libraries**: 
+  - chrono-node (date parsing)
+  - Custom regex patterns for entity extraction
+- **Optional**: OpenAI API for enhanced NLP
 
 ### 2.5 Deployment
-- **Primary Platform**: Vercel (Serverless Functions)
-- **Alternative Platforms**: Railway, Render, AWS Lambda, Google Cloud Functions
-- **Considerations**: Python backend compatibility with serverless architecture
+- **Primary Platform**: Railway (recommended - supports long-running processes)
+- **Alternative Platforms**: 
+  - Render (Web Services)
+  - DigitalOcean Droplet
+  - AWS EC2 / Lightsail
+  - VPS (any provider)
+- **Important**: Vercel/serverless NOT suitable (requires persistent connection)
 
 ### 2.6 Development Tools
 - **Version Control**: Git
-- **Package Management**: pip, requirements.txt or Poetry
-- **Environment Management**: python-dotenv, virtual environments
+- **Package Management**: npm or yarn
+- **Environment Management**: dotenv
+- **Process Manager**: PM2 (for production)
 
 ## 3. Functional Requirements
 
@@ -136,7 +144,7 @@ The Expenses Tracker is a WhatsApp-integrated expense management application tha
   - Debit (expenses)
   - Credit (income)
   - NET (running balance)
-- **FR-6.2**: Reports must be generated on demand via WhatsApp command
+- **FR-6.2**: Reports must be generated on demand via WhatsApp command and automatically generated on first day in every month.
 - **FR-6.3**: Reports must include totals for:
   - Total Debits (expenses)
   - Total Credits (income)
@@ -168,36 +176,36 @@ The Expenses Tracker is a WhatsApp-integrated expense management application tha
 
 ### 4.1 Performance Requirements
 
-- **NFR-1.1**: API response time for expense operations must be < 2 seconds (95th percentile)
+- **NFR-1.1**: Message response time must be < 3 seconds (95th percentile)
 - **NFR-1.2**: Monthly report generation must complete within 5 seconds for up to 1000 expenses
-- **NFR-1.3**: System must handle concurrent requests from multiple users
+- **NFR-1.3**: System must handle messages from multiple users concurrently
 - **NFR-1.4**: Database queries must be optimized with proper indexing
-- **NFR-1.5**: WhatsApp message processing must complete within Twilio's timeout limits (typically 30 seconds)
+- **NFR-1.5**: WhatsApp session must remain connected 24/7
 
 ### 4.2 Security Requirements
 
-- **NFR-2.1**: All API endpoints must be authenticated (Twilio signature verification)
+- **NFR-2.1**: WhatsApp session data must be stored securely
 - **NFR-2.2**: User data must be isolated (each WhatsApp number = separate user)
 - **NFR-2.3**: Database connections must use SSL/TLS
-- **NFR-2.4**: Sensitive environment variables (API keys, database credentials) must be stored securely
+- **NFR-2.4**: Sensitive environment variables must be stored securely
 - **NFR-2.5**: Input validation must prevent SQL injection and XSS attacks
-- **NFR-2.6**: API keys and tokens must be rotated periodically
-- **NFR-2.7**: User data must be encrypted at rest
+- **NFR-2.6**: User data must be encrypted at rest
 
 ### 4.3 Scalability Considerations
 
-- **NFR-3.1**: System architecture must support horizontal scaling
-- **NFR-3.2**: Database must handle growth from 100 to 10,000+ users
-- **NFR-3.3**: Serverless functions must scale automatically based on load
-- **NFR-3.4**: Consider database connection pooling for serverless environments
-- **NFR-3.5**: Implement caching for frequently accessed data (categories, recent expenses)
+- **NFR-3.1**: Single instance can handle multiple users (personal use)
+- **NFR-3.2**: Database must handle growth from 100 to 10,000+ expenses per user
+- **NFR-3.3**: Consider multi-instance architecture for high-volume usage
+- **NFR-3.4**: Implement connection pooling for database
 
 ### 4.4 Reliability and Availability
 
-- **NFR-4.1**: System uptime target: 99.5%
+- **NFR-4.1**: System uptime target: 99%
 - **NFR-4.2**: Database backups must be performed daily
-- **NFR-4.3**: Error handling must prevent data loss on failures
-- **NFR-4.4**: System must log all operations for debugging and audit purposes
+- **NFR-4.3**: Auto-reconnect on WhatsApp disconnection
+- **NFR-4.4**: Error handling must prevent data loss on failures
+- **NFR-4.5**: System must log all operations for debugging and audit purposes
+- **NFR-4.6**: Session persistence across application restarts
 
 ### 4.5 Usability Requirements
 
@@ -289,20 +297,29 @@ Upon user creation, the following system categories should be created:
 
 ## 6. WhatsApp Integration
 
-### 6.1 Twilio API Setup Requirements
+### 6.1 whatsapp-web.js Setup Requirements
 
-- **TWI-1.1**: Twilio Account with WhatsApp Business API enabled
-- **TWI-1.2**: Twilio WhatsApp Sandbox (for development) or approved WhatsApp Business Account
-- **TWI-1.3**: Webhook URL configured in Twilio Console pointing to application endpoint
-- **TWI-1.4**: Environment variables:
-  - `TWILIO_ACCOUNT_SID`
-  - `TWILIO_AUTH_TOKEN`
-  - `TWILIO_WHATSAPP_NUMBER` (Twilio WhatsApp number, e.g., `whatsapp:+14155238886`)
-- **TWI-1.5**: Request signature verification enabled for security
+- **WW-1.1**: Node.js 18+ installed
+- **WW-1.2**: Puppeteer dependencies installed (for headless Chrome)
+- **WW-1.3**: Local authentication strategy for session persistence
+- **WW-1.4**: QR code generation for initial authentication
+- **WW-1.5**: Event handlers for messages, disconnection, and errors
 
-### 6.2 Message Format Specifications
+### 6.2 Authentication Flow
 
-#### 6.2.1 Incoming Messages (User → System)
+1. **First Run**: 
+   - Application starts and generates QR code in terminal
+   - User scans QR code with WhatsApp mobile app
+   - Session is saved locally for future use
+
+2. **Subsequent Runs**:
+   - Application loads saved session
+   - Auto-connects without QR scan
+   - If session expired, new QR code is generated
+
+### 6.3 Message Format Specifications
+
+#### 6.3.1 Incoming Messages (User → System)
 
 **Expense Entry Formats:**
 - "Spent $50 on groceries"
@@ -335,7 +352,7 @@ Upon user creation, the following system categories should be created:
 - "Show categories"
 - "Delete category Travel"
 
-#### 6.2.2 Outgoing Messages (System → User)
+#### 6.3.2 Outgoing Messages (System → User)
 
 **Confirmation Messages:**
 - "✓ Expense added: $50.00 - Groceries (Food) on 2024-01-15"
@@ -353,14 +370,14 @@ Upon user creation, the following system categories should be created:
 **Monthly Reports:**
 - Formatted table with columns: Day | Description | Category | Debit | Credit | NET
 - Summary totals at the bottom
-- If too long, provide as downloadable PDF or link
+- If too long, split into multiple messages
 
-### 6.3 Natural Language Understanding Requirements
+### 6.4 Natural Language Understanding Requirements
 
-#### 6.3.1 Entity Extraction
+#### 6.4.1 Entity Extraction
 
 - **Amount Extraction**:
-  - Support formats: "$50", "50", "50.99", "fifty dollars", "€50"
+  - Support formats: "$50", "50", "50.99", "Rp50000", "50k"
   - Detect currency symbols and convert if needed (default: USD)
   
 - **Date Extraction**:
@@ -377,7 +394,7 @@ Upon user creation, the following system categories should be created:
   - Keywords for debit: "spent", "bought", "paid", "expense"
   - Keywords for credit: "received", "income", "earned", "credit"
 
-#### 6.3.2 Intent Recognition
+#### 6.4.2 Intent Recognition
 
 - Add Expense
 - View Expenses
@@ -387,7 +404,7 @@ Upon user creation, the following system categories should be created:
 - Manage Categories
 - Help/Unknown
 
-#### 6.3.3 Clarification Requests
+#### 6.4.3 Clarification Requests
 
 When information is missing or ambiguous:
 - "Please specify the amount for this expense"
@@ -396,175 +413,157 @@ When information is missing or ambiguous:
 
 ## 7. Deployment Requirements
 
-### 7.1 Vercel Deployment Considerations
+### 7.1 Server Requirements
 
-#### 7.1.1 Serverless Functions
-- **VER-1.1**: Python backend must be deployed as Vercel Serverless Functions
-- **VER-1.2**: Functions must be stateless and handle cold starts efficiently
-- **VER-1.3**: Function timeout limits: 10 seconds (Hobby) to 60 seconds (Pro)
-- **VER-1.4**: Maximum payload size: 4.5 MB
-- **VER-1.5**: Consider using Vercel Edge Functions for faster response times if applicable
+#### 7.1.1 Minimum Specifications
+- **RAM**: 512MB minimum, 1GB recommended
+- **CPU**: 1 vCPU minimum
+- **Storage**: 1GB minimum (for session data and logs)
+- **OS**: Linux (Ubuntu recommended) or Windows
 
-#### 7.1.2 Python Runtime
-- **VER-2.1**: Python runtime version must be specified in `runtime.txt` or `vercel.json`
-- **VER-2.2**: Dependencies must be specified in `requirements.txt`
-- **VER-2.3**: Consider using Python 3.9+ for compatibility
+#### 7.1.2 Important Notes
+- **NOT compatible with serverless** (Vercel, AWS Lambda, etc.)
+- Requires **long-running process** for WhatsApp Web session
+- Needs **persistent storage** for session authentication
 
-#### 7.1.3 Alternative Deployment Options
-If full Python backend is needed with long-running processes:
-- **Railway**: Supports Docker containers, PostgreSQL, Python
-- **Render**: Supports Python web services, PostgreSQL
-- **AWS Lambda**: Serverless with longer timeouts (15 minutes)
-- **Google Cloud Functions**: Similar to AWS Lambda
+### 7.2 Recommended Deployment Platforms
 
-### 7.2 Database Hosting
+#### 7.2.1 Railway (Recommended)
+- Easy deployment from Git
+- Supports long-running processes
+- Free tier available (limited hours)
+- Built-in PostgreSQL option
 
-#### 7.2.1 Vercel Postgres
-- **DB-1.1**: If using Vercel, consider Vercel Postgres for integrated hosting
-- **DB-1.2**: Connection pooling required for serverless functions
-- **DB-1.3**: Use serverless-friendly connection libraries (pg with connection pooling)
+#### 7.2.2 Render
+- Web Services (not serverless)
+- Supports persistent processes
+- Free tier available
+- Easy PostgreSQL integration
 
-#### 7.2.2 External PostgreSQL Services
-- **DB-2.1**: Options: Supabase, Neon, Railway Postgres, AWS RDS, Google Cloud SQL
-- **DB-2.2**: Connection string must be stored as environment variable
-- **DB-2.3**: SSL/TLS connection required
-- **DB-2.4**: Connection pooling service (PgBouncer) recommended for serverless
+#### 7.2.3 DigitalOcean / VPS
+- Full control over server
+- $4-6/month for basic droplet
+- Manual setup required
+- Best for production
 
 ### 7.3 Environment Variables
 
 Required environment variables for deployment:
 
 ```
-# Twilio Configuration
-TWILIO_ACCOUNT_SID=your_account_sid
-TWILIO_AUTH_TOKEN=your_auth_token
-TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886
-
 # Database Configuration
 DATABASE_URL=postgresql://user:password@host:port/database
-# OR for connection pooling (recommended for serverless)
-DATABASE_POOL_URL=postgresql://user:password@host:port/database?pgbouncer=true
 
 # Application Configuration
-ENVIRONMENT=production
-APP_SECRET_KEY=your_secret_key
+NODE_ENV=production
 
-# Optional: NLP Service (if using external API)
-OPENAI_API_KEY=your_api_key  # If using OpenAI for NLP
+# Optional: Session encryption
+SESSION_SECRET=your_secret_key
+
+# Optional: Logging
+LOG_LEVEL=info
 ```
 
-### 7.4 Webhook Configuration
+### 7.4 Process Management
 
-- **WEB-1.1**: Twilio webhook URL must point to: `https://your-domain.vercel.app/api/webhook/whatsapp`
-- **WEB-1.2**: HTTPS required (automatically provided by Vercel)
-- **WEB-1.3**: Webhook endpoint must handle POST requests
-- **WEB-1.4**: Request signature verification must be implemented
+For production deployment, use PM2:
 
-### 7.5 Build and Deployment Process
+```bash
+# Install PM2
+npm install -g pm2
 
-- **DEP-1.1**: Code must be in Git repository
-- **DEP-1.2**: Vercel automatically builds and deploys on git push (if connected)
-- **DEP-1.3**: Build command: `pip install -r requirements.txt` (if needed)
-- **DEP-1.4**: Output directory: Not applicable for serverless functions
-- **DEP-1.5**: Install command: Handled automatically by Vercel
+# Start application
+pm2 start src/index.js --name expenses-tracker
+
+# Enable auto-restart on server reboot
+pm2 startup
+pm2 save
+```
 
 ## 8. Development Requirements
 
-### 8.1 Python Dependencies
+### 8.1 Node.js Dependencies
 
-Core dependencies (requirements.txt):
+Core dependencies (package.json):
 
-```
-# Web Framework
-flask>=2.3.0
-# OR
-fastapi>=0.100.0
-uvicorn>=0.23.0
-
-# Database
-sqlalchemy>=2.0.0
-psycopg2-binary>=2.9.0
-# OR for async
-asyncpg>=0.28.0
-
-# Twilio
-twilio>=8.0.0
-
-# Environment
-python-dotenv>=1.0.0
-
-# Natural Language Processing
-spacy>=3.6.0
-# OR
-openai>=1.0.0  # If using OpenAI API
-
-# Date Parsing
-dateparser>=1.2.0
-
-# HTTP Client (if needed)
-requests>=2.31.0
-
-# Utilities
-python-dateutil>=2.8.0
+```json
+{
+  "dependencies": {
+    "whatsapp-web.js": "^1.23.0",
+    "qrcode-terminal": "^0.12.0",
+    "pg": "^8.11.0",
+    "dotenv": "^16.3.0",
+    "chrono-node": "^2.7.0",
+    "node-cron": "^3.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0",
+    "jest": "^29.0.0"
+  }
+}
 ```
 
 ### 8.2 Development Setup
 
 #### 8.2.1 Local Development Environment
 
-1. **Python Version**: Python 3.9 or higher
-2. **Virtual Environment**:
+1. **Node.js Version**: Node.js 18 or higher
+2. **Installation**:
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -r requirements.txt
+   # Clone repository
+   git clone <repo-url>
+   cd expenses-tracker
+
+   # Install dependencies
+   npm install
+
+   # Copy environment file
+   cp .env.example .env
+   # Edit .env with your database credentials
    ```
 3. **Local PostgreSQL Database**:
    - Install PostgreSQL locally or use Docker
    - Create database: `CREATE DATABASE expenses_tracker;`
-   - Run migrations/schema setup
+   - Run schema setup: `npm run db:setup`
 4. **Environment Variables**:
    - Create `.env` file with local configuration
    - Never commit `.env` to version control
-5. **Twilio Sandbox**:
-   - Set up Twilio WhatsApp Sandbox for testing
-   - Configure webhook to point to ngrok/tunneling service for local testing
+5. **First Run**:
+   - Run `npm start`
+   - Scan QR code with WhatsApp
+   - Session will be saved for future runs
 
 #### 8.2.2 Project Structure
 
 ```
 expenses-tracker/
-├── api/
-│   ├── __init__.py
-│   ├── webhook.py          # Twilio webhook endpoint
-│   ├── expenses.py         # Expense CRUD endpoints
-│   └── reports.py          # Report generation
-├── models/
-│   ├── __init__.py
-│   ├── user.py
-│   ├── category.py
-│   └── expense.py
-├── services/
-│   ├── __init__.py
-│   ├── nlp.py              # Natural language processing
-│   ├── message_handler.py  # WhatsApp message handling
-│   └── report_generator.py
-├── database/
-│   ├── __init__.py
-│   ├── connection.py
-│   └── migrations/
-├── utils/
-│   ├── __init__.py
-│   ├── validators.py
-│   └── formatters.py
+├── src/
+│   ├── index.js              # Application entry point
+│   ├── whatsapp/
+│   │   ├── client.js         # WhatsApp client setup
+│   │   └── handlers.js       # Message handlers
+│   ├── services/
+│   │   ├── nlp.js            # Natural language processing
+│   │   ├── messageHandler.js # Message processing logic
+│   │   └── reportGenerator.js# Report generation
+│   ├── database/
+│   │   ├── connection.js     # Database connection
+│   │   ├── models/
+│   │   │   ├── user.js
+│   │   │   ├── category.js
+│   │   │   └── expense.js
+│   │   └── schema.sql        # Database schema
+│   └── utils/
+│       ├── validators.js
+│       └── formatters.js
 ├── tests/
-│   ├── test_nlp.py
-│   ├── test_expenses.py
-│   └── test_webhook.py
-├── requirements.txt
+│   ├── nlp.test.js
+│   ├── expenses.test.js
+│   └── handlers.test.js
+├── .wwebjs_auth/             # WhatsApp session (gitignored)
+├── package.json
 ├── .env.example
-├── vercel.json             # Vercel configuration
-├── runtime.txt             # Python version
+├── .gitignore
 └── README.md
 ```
 
@@ -573,18 +572,18 @@ expenses-tracker/
 #### 8.3.1 Unit Tests
 - **TEST-1.1**: NLP entity extraction (amount, date, category)
 - **TEST-1.2**: Intent recognition
-- **TEST-1.3**: Database models and relationships
+- **TEST-1.3**: Database models and queries
 - **TEST-1.4**: Expense CRUD operations
 - **TEST-1.5**: Report generation logic
 
 #### 8.3.2 Integration Tests
-- **TEST-2.1**: Twilio webhook handling
+- **TEST-2.1**: Message handling flow
 - **TEST-2.2**: End-to-end message processing
 - **TEST-2.3**: Database operations with real PostgreSQL
 - **TEST-2.4**: Monthly report generation with sample data
 
 #### 8.3.3 Testing Framework
-- **Framework**: pytest
+- **Framework**: Jest
 - **Database Testing**: Use test database or mocking
 - **Coverage Target**: Minimum 70% code coverage
 
@@ -595,12 +594,11 @@ expenses-tracker/
 
 ### 8.4 Code Quality Requirements
 
-- **CQ-1.1**: Follow PEP 8 Python style guidelines
-- **CQ-1.2**: Use type hints where applicable
-- **CQ-1.3**: Document functions and classes with docstrings
-- **CQ-1.4**: Implement error handling for all external API calls
-- **CQ-1.5**: Log important operations and errors
-- **CQ-1.6**: Use linters: flake8, black (formatter), mypy (type checking)
+- **CQ-1.1**: Follow JavaScript Standard Style or ESLint configuration
+- **CQ-1.2**: Use JSDoc comments for documentation
+- **CQ-1.3**: Implement error handling for all async operations
+- **CQ-1.4**: Log important operations and errors
+- **CQ-1.5**: Use linters: ESLint, Prettier (formatter)
 
 ### 8.5 Version Control
 
@@ -608,12 +606,11 @@ expenses-tracker/
 - **VC-1.2**: Meaningful commit messages
 - **VC-1.3**: Branch strategy: main/master for production, feature branches for development
 - **VC-1.4**: `.gitignore` must exclude:
-  - `__pycache__/`
-  - `*.pyc`
+  - `node_modules/`
   - `.env`
-  - `venv/`
-  - `.venv/`
-  - Database files
+  - `.wwebjs_auth/`
+  - `.wwebjs_cache/`
+  - `*.log`
   - IDE-specific files
 
 ## 9. Future Enhancements (Out of Scope for Initial Version)
@@ -628,17 +625,41 @@ expenses-tracker/
 - Voice message support
 - Expense tags/labels
 - Integration with accounting software
+- Web dashboard for viewing expenses
 
 ## 10. Constraints and Limitations
 
 - **CON-1**: WhatsApp message length limit (4096 characters) affects report formatting
-- **CON-2**: Twilio WhatsApp Sandbox limitations during development (must send "join [code-word]" first)
-- **CON-3**: Serverless function cold starts may cause initial latency
-- **CON-4**: Database connection limits in serverless environments
-- **CON-5**: Monthly reports with 1000+ expenses may require PDF export or pagination
+- **CON-2**: Requires persistent connection (not compatible with serverless)
+- **CON-3**: WhatsApp may disconnect occasionally, requiring auto-reconnect
+- **CON-4**: Unofficial API - risk of being blocked (low risk for personal use)
+- **CON-5**: Monthly reports with 1000+ expenses may require splitting into multiple messages
+- **CON-6**: Only one WhatsApp account can be connected per instance
+
+## 11. whatsapp-web.js Specific Notes
+
+### 11.1 Important Warnings
+
+> **Warning**: WhatsApp does not allow bots or unofficial clients on their platform. 
+> Using this library carries a risk of your WhatsApp account being banned. 
+> For personal/hobby use, the risk is minimal if you don't spam.
+
+### 11.2 Best Practices
+
+- Don't send too many messages in a short time
+- Don't use for marketing/spam
+- Add delays between messages (1-3 seconds)
+- Use for personal expense tracking only
+- Consider using a secondary WhatsApp number
+
+### 11.3 Session Management
+
+- Session is stored in `.wwebjs_auth/` folder
+- Keep this folder persistent across deployments
+- If session is lost, you'll need to scan QR code again
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: [Current Date]  
-**Status**: Draft
+**Document Version**: 2.0  
+**Last Updated**: January 2025  
+**Status**: Updated for Node.js + whatsapp-web.js
