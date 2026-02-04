@@ -17,14 +17,14 @@ const DEFAULT_CATEGORIES = [
 ];
 
 /**
- * Find user by phone number
- * @param {string} phoneNumber - Phone number
+ * Find user by chat ID
+ * @param {string|number} chatId - User's chat ID
  * @returns {Promise<Object|null>} User object or null
  */
-async function findByPhone(phoneNumber) {
+async function findByChatId(chatId) {
   const result = await db.query(
-    'SELECT * FROM users WHERE phone_number = $1',
-    [phoneNumber]
+    'SELECT * FROM users WHERE chat_id = $1',
+    [chatId]
   );
   return result.rows[0] || null;
 }
@@ -44,22 +44,22 @@ async function findById(id) {
 
 /**
  * Create a new user with default categories
- * @param {string} phoneNumber - Phone number
+ * @param {string|number} chatId - User's chat ID
  * @returns {Promise<Object>} Created user
  */
-async function create(phoneNumber) {
+async function create(chatId) {
   const client = await db.getClient();
-  
+
   try {
     await client.query('BEGIN');
-    
+
     // Create user
     const userResult = await client.query(
-      'INSERT INTO users (phone_number) VALUES ($1) RETURNING *',
-      [phoneNumber]
+      'INSERT INTO users (chat_id) VALUES ($1) RETURNING *',
+      [chatId]
     );
     const user = userResult.rows[0];
-    
+
     // Create default categories
     for (const category of DEFAULT_CATEGORIES) {
       await client.query(
@@ -67,9 +67,9 @@ async function create(phoneNumber) {
         [user.id, category.name, category.is_system]
       );
     }
-    
+
     await client.query('COMMIT');
-    
+
     return user;
   } catch (error) {
     await client.query('ROLLBACK');
@@ -80,26 +80,26 @@ async function create(phoneNumber) {
 }
 
 /**
- * Get or create user by phone number
- * @param {string} phoneNumber - Phone number
+ * Get or create user by chat ID
+ * @param {string|number} chatId - User's chat ID
  * @returns {Promise<Object>} User object
  */
-async function getOrCreate(phoneNumber) {
-  // Clean phone number
-  const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
-  
-  let user = await findByPhone(cleanPhone);
-  
+async function getOrCreate(chatId) {
+  // Convert chatId to string for consistency
+  const cleanChatId = String(chatId);
+
+  let user = await findByChatId(cleanChatId);
+
   if (!user) {
-    user = await create(cleanPhone);
-    console.log(`Created new user: ${cleanPhone}`);
+    user = await create(cleanChatId);
+    console.log(`Created new user: ${cleanChatId}`);
   }
-  
+
   return user;
 }
 
 module.exports = {
-  findByPhone,
+  findByChatId,
   findById,
   create,
   getOrCreate,

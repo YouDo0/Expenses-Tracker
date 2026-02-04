@@ -1,20 +1,20 @@
 /**
  * Expenses Tracker - Main Entry Point
- * 
- * A WhatsApp-integrated expense management application
+ *
+ * A Telegram-integrated expense management application
  */
 
 require('dotenv').config();
 
-const { initialize } = require('./whatsapp/client');
-const { handleMessage } = require('./whatsapp/handlers');
+const { initialize: initBot, stop: stopBot } = require('./telegram/bot');
+const { handleMessage } = require('./telegram/handlers');
 const db = require('./database/connection');
 
 // ASCII Art Banner
 const banner = `
 ╔═══════════════════════════════════════════╗
 ║        EXPENSES TRACKER                    ║
-║   WhatsApp Expense Management Bot          ║
+║   Telegram Expense Management Bot          ║
 ╚═══════════════════════════════════════════╝
 `;
 
@@ -37,19 +37,27 @@ async function main() {
     process.exit(1);
   }
 
-  // Initialize WhatsApp client
-  initialize(handleMessage);
+  // Check for bot token
+  const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+  if (!TELEGRAM_BOT_TOKEN) {
+    console.error('✗ TELEGRAM_BOT_TOKEN not found in .env file');
+    console.error('  Please get a token from @BotFather on Telegram');
+    process.exit(1);
+  }
+
+  // Initialize Telegram bot
+  console.log('Initializing Telegram bot...');
+  initBot(TELEGRAM_BOT_TOKEN, handleMessage);
+  console.log('✓ Bot is running. Send a message to start tracking expenses!\n');
 
   // Handle graceful shutdown
   process.on('SIGINT', async () => {
     console.log('\n\nShutting down...');
-    
+
     try {
-      const { destroy } = require('./whatsapp/client');
-      await destroy();
-      console.log('✓ WhatsApp client disconnected');
+      await stopBot();
     } catch (error) {
-      console.error('Error disconnecting WhatsApp:', error);
+      console.error('Error stopping bot:', error);
     }
 
     try {

@@ -3,12 +3,12 @@
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
-    phone_number VARCHAR(20) UNIQUE NOT NULL,
+    chat_id BIGINT UNIQUE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number);
+CREATE INDEX IF NOT EXISTS idx_users_chat ON users(chat_id);
 
 -- Categories table
 CREATE TABLE IF NOT EXISTS categories (

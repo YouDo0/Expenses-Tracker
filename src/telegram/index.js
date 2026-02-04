@@ -1,11 +1,11 @@
 /**
- * WhatsApp module index
+ * Telegram module index
  */
 
-const client = require('./client');
+const bot = require('./bot');
 const handlers = require('./handlers');
 
 module.exports = {
-  ...client,
+  ...bot,
   ...handlers
 };

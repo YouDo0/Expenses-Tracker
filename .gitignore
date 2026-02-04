@@ -6,10 +6,6 @@ node_modules/
 .env.local
 .env.*.local
 
-# WhatsApp session data
-.wwebjs_auth/
-.wwebjs_cache/
-
 # Logs
 logs/
 *.log
