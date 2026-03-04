@@ -79,9 +79,10 @@ Send messages to your Telegram bot:
 
 ### Add Expense
 ```
-Spent $50 on groceries
-Coffee $5.50 Category: Food
-Received $200 from client, Category: Income
+Makan siang Rp50000
+Kopi Rp15000 Category: Food
+Gaji Rp5000000, Category: Income
+Belanja 50k Category: Shopping
 ```
 
 ### View Expenses
@@ -94,7 +95,7 @@ Show last 10 expenses
 
 ### Edit/Delete Expense
 ```
-Edit expense 123 Amount: $60
+Edit expense 123 Amount: Rp60000
 Delete expense 123
 ```
 
@@ -116,6 +117,8 @@ Delete category Travel
 Help
 ?
 ```
+
+For a complete guide with all features and examples, see [BOT_USAGE.md](BOT_USAGE.md).
 
 ## Project Structure
 

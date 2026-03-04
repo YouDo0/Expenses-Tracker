@@ -23,11 +23,11 @@ function escapeHtml(text) {
  * @returns {string} Formatted currency string
  */
 function formatCurrency(amount, showSymbol = true) {
-  const formatted = Math.abs(amount).toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+  const formatted = Math.abs(amount).toLocaleString('id-ID', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
   });
-  return showSymbol ? `$${formatted}` : formatted;
+  return showSymbol ? `Rp${formatted}` : formatted;
 }
 
 /**

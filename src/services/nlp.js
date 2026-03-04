@@ -27,7 +27,7 @@ const CATEGORY_KEYWORDS = {
  */
 function extractEntities(message) {
   const messageLower = message.toLowerCase().trim();
-  
+
   const entities = {
     amount: null,
     date: null,
@@ -36,25 +36,25 @@ function extractEntities(message) {
     transactionType: 'debit',
     notes: null
   };
-  
+
   // Extract amount
   entities.amount = extractAmount(message);
-  
+
   // Extract date
   entities.date = extractDate(message);
-  
+
   // Extract transaction type
   entities.transactionType = extractTransactionType(messageLower);
-  
+
   // Extract category (explicit or implicit)
   entities.category = extractCategory(messageLower);
-  
+
   // Extract description
   entities.description = extractDescription(message, entities);
-  
+
   // Extract notes
   entities.notes = extractNotes(message);
-  
+
   return entities;
 }
 
@@ -64,16 +64,16 @@ function extractEntities(message) {
  * @returns {number|null} Amount or null
  */
 function extractAmount(message) {
-  // Patterns to match amounts
+  // Patterns to match amounts (Rupiah patterns first)
   const patterns = [
-    /\$[\d,]+\.?\d*/,                    // $50, $50.99
-    /[\d,]+\.?\d*\s*(?:dollars?|usd)/i,  // 50 dollars
     /(?:Rp|IDR)\s?[\d,.]+/i,             // Rp50000, IDR 50.000
     /[\d,]+\.?\d*\s*(?:k|rb|ribu)/i,     // 50k, 50rb, 50ribu
-    /(?:amount|price|cost):\s*\$?[\d,]+\.?\d*/i,  // Amount: $50
+    /\$[\d,]+\.?\d*/,                    // $50, $50.99
+    /[\d,]+\.?\d*\s*(?:dollars?|usd)/i,  // 50 dollars
+    /(?:amount|price|cost):\s*(?:Rp|\$)?[\d,]+\.?\d*/i,  // Amount: Rp50000
     /\d+\.?\d*/                          // Fallback: any number
   ];
-  
+
   for (const pattern of patterns) {
     const match = message.match(pattern);
     if (match) {
@@ -81,7 +81,7 @@ function extractAmount(message) {
       if (amount) return amount;
     }
   }
-  
+
   return null;
 }
 
@@ -93,11 +93,11 @@ function extractAmount(message) {
 function extractDate(message) {
   // Use chrono for natural language date parsing
   const parsed = chrono.parseDate(message);
-  
+
   if (parsed) {
     return parsed;
   }
-  
+
   // Default to today
   return new Date();
 }
@@ -114,14 +114,14 @@ function extractTransactionType(messageLower) {
       return 'credit';
     }
   }
-  
+
   // Check for debit keywords
   for (const keyword of DEBIT_KEYWORDS) {
     if (messageLower.includes(keyword)) {
       return 'debit';
     }
   }
-  
+
   // Default to debit
   return 'debit';
 }
@@ -139,7 +139,7 @@ function extractCategory(messageLower) {
     const category = (match[1] || match[2]).trim();
     return category.charAt(0).toUpperCase() + category.slice(1);
   }
-  
+
   // Infer category from keywords
   for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
     for (const keyword of keywords) {
@@ -148,7 +148,7 @@ function extractCategory(messageLower) {
       }
     }
   }
-  
+
   return null;
 }
 
@@ -160,38 +160,38 @@ function extractCategory(messageLower) {
  */
 function extractDescription(message, entities) {
   let text = message;
-  
-  // Remove amount patterns
-  text = text.replace(/\$[\d,]+\.?\d*/g, '');
-  text = text.replace(/[\d,]+\.?\d*\s*(?:dollars?|usd)/gi, '');
+
+  // Remove amount patterns (Rupiah first)
   text = text.replace(/(?:Rp|IDR)\s?[\d,.]+/gi, '');
   text = text.replace(/[\d,]+\.?\d*\s*(?:k|rb|ribu)/gi, '');
-  
+  text = text.replace(/\$[\d,]+\.?\d*/g, '');
+  text = text.replace(/[\d,]+\.?\d*\s*(?:dollars?|usd)/gi, '');
+
   // Remove category patterns
   text = text.replace(/category:\s*\w+|cat:\s*\w+/gi, '');
-  
+
   // Remove notes patterns
   text = text.replace(/notes?:\s*.+?(?:category:|cat:|$)/gi, '');
-  
+
   // Remove transaction type keywords
   const allKeywords = [...DEBIT_KEYWORDS, ...CREDIT_KEYWORDS];
   for (const keyword of allKeywords) {
     text = text.replace(new RegExp(`\\b${keyword}\\b`, 'gi'), '');
   }
-  
+
   // Remove common prepositions
   text = text.replace(/\b(on|for|from|at|to)\b/gi, '');
-  
+
   // Clean up
   text = text.replace(/\s+/g, ' ').trim();
-  
+
   // Remove leading/trailing punctuation
   text = text.replace(/^[,.\s]+|[,.\s]+$/g, '');
-  
+
   if (text.length > 0) {
     return text.substring(0, 200);
   }
-  
+
   return null;
 }
 
@@ -216,27 +216,27 @@ function extractNotes(message) {
  */
 function recognizeIntent(message) {
   const messageLower = message.toLowerCase().trim();
-  
+
   // View expenses
   if (/\b(show|list|view|display|lihat|tampilkan)\b.*\b(expense|pengeluaran)/i.test(messageLower)) {
     return 'view_expenses';
   }
-  
+
   // Edit expense
   if (/\b(edit|update|change|modify|ubah|ganti)\b.*\b(expense|pengeluaran)/i.test(messageLower)) {
     return 'edit_expense';
   }
-  
+
   // Delete expense
   if (/\b(delete|remove|hapus|cancel)\b.*\b(expense|pengeluaran)/i.test(messageLower)) {
     return 'delete_expense';
   }
-  
+
   // Generate report
   if (/\b(report|summary|laporan|ringkasan|monthly)\b/i.test(messageLower)) {
     return 'generate_report';
   }
-  
+
   // Manage categories
   if (/\b(category|categories|kategori)\b/i.test(messageLower)) {
     if (/\b(add|create|new|tambah|buat)\b/i.test(messageLower)) {
@@ -250,17 +250,17 @@ function recognizeIntent(message) {
     }
     return 'view_categories';
   }
-  
+
   // Help
   if (/^(help|\?|menu|bantuan|tolong)$/i.test(messageLower)) {
     return 'help';
   }
-  
+
   // Add expense (check if message contains an amount)
   if (extractAmount(message)) {
     return 'add_expense';
   }
-  
+
   // Unknown intent
   return 'unknown';
 }
@@ -278,11 +278,11 @@ function parseViewFilters(message) {
     categoryName: null,
     limit: 10
   };
-  
+
   // Parse date range
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
+
   if (/last\s*week|minggu\s*lalu/i.test(messageLower)) {
     filters.startDate = new Date(today);
     filters.startDate.setDate(filters.startDate.getDate() - 7);
@@ -301,19 +301,19 @@ function parseViewFilters(message) {
     filters.startDate.setDate(filters.startDate.getDate() - 1);
     filters.endDate = new Date(filters.startDate);
   }
-  
+
   // Parse category
   const categoryMatch = messageLower.match(/category:\s*(\w+)/i);
   if (categoryMatch) {
     filters.categoryName = categoryMatch[1];
   }
-  
+
   // Parse limit
   const limitMatch = messageLower.match(/last\s*(\d+)/);
   if (limitMatch) {
     filters.limit = Math.min(parseInt(limitMatch[1]), 50);
   }
-  
+
   return filters;
 }
 
@@ -325,7 +325,7 @@ function parseViewFilters(message) {
 function parseReportMonth(message) {
   const messageLower = message.toLowerCase();
   const today = new Date();
-  
+
   // Month names
   const months = {
     'january': 1, 'february': 2, 'march': 3, 'april': 4,
@@ -335,14 +335,14 @@ function parseReportMonth(message) {
     'mei': 5, 'juni': 6, 'juli': 7, 'agustus': 8,
     'september': 9, 'oktober': 10, 'november': 11, 'desember': 12
   };
-  
+
   // Check for month name
   for (const [name, num] of Object.entries(months)) {
     if (messageLower.includes(name)) {
       return { year: today.getFullYear(), month: num };
     }
   }
-  
+
   // Default to current month
   return { year: today.getFullYear(), month: today.getMonth() + 1 };
 }

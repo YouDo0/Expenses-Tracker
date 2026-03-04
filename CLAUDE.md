@@ -113,10 +113,11 @@ Cascading deletes: User deletion removes all their categories and expenses.
 
 ### NLP Patterns
 The NLP service recognizes various expense formats:
-- `Spent $50 on groceries` - Amount + implicit category
-- `Coffee $5.50 Category: Food` - Explicit category specification
-- `Received $200 from client` - Credit transaction
+- `Makan siang Rp50000` - Amount with Rupiah prefix
+- `Kopi 15k Category: Food` - Shorthand amount with explicit category
+- `Gaji Rp5000000, Category: Income` - Credit transaction
 - `Show expenses from last week` - chrono-node date parsing
+- Supported formats: `Rp50000`, `50k`, `50rb`, `IDR 50000`
 
 ## Deployment
 

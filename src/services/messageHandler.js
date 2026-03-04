@@ -59,11 +59,11 @@ async function handleAddExpense(user, message) {
 
   // Validate required fields
   if (!entities.amount) {
-    return "✗ Error: Please specify the amount. Example: 'Spent $50 on groceries'";
+    return "✗ Error: Please specify the amount. Example: 'Makan siang Rp50000'";
   }
 
   if (!entities.description) {
-    return "✗ Error: Please provide a description. Example: 'Spent $50 on groceries'";
+    return "✗ Error: Please provide a description. Example: 'Makan siang Rp50000'";
   }
 
   // Get or create category
@@ -130,7 +130,7 @@ async function handleEditExpense(user, message) {
   // Extract expense ID
   const idMatch = message.match(/(\d+)/);
   if (!idMatch) {
-    return "✗ Error: Please specify expense ID. Example: 'Edit expense 123 Amount: $60'";
+    return "✗ Error: Please specify expense ID. Example: 'Edit expense 123 Amount: Rp60000'";
   }
 
   const expenseId = validateExpenseId(idMatch[1]);
@@ -149,7 +149,7 @@ async function handleEditExpense(user, message) {
   const updates = {};
 
   // Update amount
-  const amountMatch = message.match(/amount:\s*\$?([\d,.]+)/i);
+  const amountMatch = message.match(/amount:\s*(?:Rp|\$)?([\d,.]+)/i);
   if (amountMatch) {
     const { validateAmount } = require('../utils/validators');
     const amount = validateAmount(amountMatch[1]);
@@ -219,7 +219,7 @@ async function handleGenerateReport(user, message) {
 async function handleAddCategory(user, message) {
   // Extract category name
   const categoryMatch = message.match(/(?:add|create|new)\s+category\s+(.+)/i) ||
-                        message.match(/category\s+(.+)/i);
+    message.match(/category\s+(.+)/i);
 
   if (!categoryMatch) {
     return "✗ Error: Please specify category name. Example: 'Add category Travel'";
@@ -252,7 +252,7 @@ async function handleAddCategory(user, message) {
 async function handleDeleteCategory(user, message) {
   // Extract category name
   const categoryMatch = message.match(/(?:delete|remove)\s+category\s+(.+)/i) ||
-                        message.match(/category\s+(.+)/i);
+    message.match(/category\s+(.+)/i);
 
   if (!categoryMatch) {
     return "✗ Error: Please specify category name. Example: 'Delete category Travel'";
@@ -292,9 +292,10 @@ function getHelpMessage() {
   return `📱 <b>EXPENSES TRACKER - HELP</b>
 
 📝 <b>ADD EXPENSE:</b>
-  "Spent $50 on groceries"
-  "Coffee $5.50 Category: Food"
-  "Received $200 from client, Category: Income"
+  "Makan siang Rp50000"
+  "Kopi Rp15000 Category: Food"
+  "Gaji Rp5000000, Category: Income"
+  "Belanja 50k Category: Shopping"
 
 👁️ <b>VIEW EXPENSES:</b>
   "Show expenses"
@@ -303,7 +304,7 @@ function getHelpMessage() {
   "Show last 10 expenses"
 
 ✏️ <b>EDIT EXPENSE:</b>
-  "Edit expense 123 Amount: $60"
+  "Edit expense 123 Amount: Rp60000"
   "Update expense 123 Category: Food"
 
 🗑️ <b>DELETE EXPENSE:</b>
@@ -318,6 +319,9 @@ function getHelpMessage() {
   "Show categories"
   "Delete category Travel"
 
+💡 <b>SUPPORTED FORMATS:</b>
+  Rp50000, 50k, 50rb, IDR 50000
+
 ❓ <b>HELP:</b>
   "Help" or "?"`;
 }
@@ -327,7 +331,7 @@ function getHelpMessage() {
  */
 function getUnknownMessage() {
   return `✗ I didn't understand that. Try:
-- Add expense: "Spent $50 on groceries"
+- Add expense: "Makan siang Rp50000"
 - View expenses: "Show expenses"
 - Help: "Help"`;
 }
