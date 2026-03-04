@@ -1,10 +1,10 @@
 # Expenses Tracker
 
-A WhatsApp-integrated expense management application that allows users to track, manage, and analyze their expenses through natural language conversations.
+A Telegram-integrated expense management application that allows users to track, manage, and analyze their expenses through natural language conversations.
 
 ## Features
 
-- 📱 Add expenses via WhatsApp using natural language
+- 💬 Add expenses via Telegram using natural language
 - 📊 View expenses by date range, category, or recent entries
 - ✏️ Edit and delete expenses
 - 📈 Generate monthly reports with detailed financial summaries
@@ -15,14 +15,14 @@ A WhatsApp-integrated expense management application that allows users to track,
 
 - **Runtime**: Node.js 18+
 - **Database**: PostgreSQL
-- **WhatsApp Integration**: [whatsapp-web.js](https://github.com/pedroslopez/whatsapp-web.js)
-- **Deployment**: Railway, Render, or VPS (requires persistent connection)
+- **Telegram Integration**: [node-telegram-bot-api](https://github.com/yagop/node-telegram-bot-api)
+- **Deployment**: VPS with PM2 process manager
 
 ## Prerequisites
 
 - Node.js 18 or higher
 - PostgreSQL database
-- WhatsApp account (for bot)
+- Telegram Bot Token (from [@BotFather](https://t.me/botfather))
 
 ## Installation
 
@@ -42,8 +42,9 @@ A WhatsApp-integrated expense management application that allows users to track,
    cp .env.example .env
    ```
 
-4. Edit `.env` with your database credentials:
+4. Edit `.env` with your credentials:
    ```env
+   TELEGRAM_BOT_TOKEN=your-bot-token-from-botfather
    DATABASE_URL=postgresql://user:password@localhost:5432/expenses_tracker
    NODE_ENV=development
    ```
@@ -58,12 +59,7 @@ A WhatsApp-integrated expense management application that allows users to track,
    npm start
    ```
 
-7. **First Run - WhatsApp Authentication**:
-   - A QR code will appear in the terminal
-   - Open WhatsApp on your phone
-   - Go to Settings → Linked Devices → Link a Device
-   - Scan the QR code
-   - Wait for "Client is ready!" message
+7. Open Telegram, search for your bot, and start tracking expenses!
 
 ## Configuration
 
@@ -71,6 +67,7 @@ A WhatsApp-integrated expense management application that allows users to track,
 
 | Variable | Description | Required |
 |----------|-------------|----------|
+| `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather | Yes |
 | `DATABASE_URL` | PostgreSQL connection string | Yes |
 | `NODE_ENV` | Environment (development/production) | Yes |
 | `SESSION_SECRET` | Secret for session encryption | No |
@@ -78,7 +75,7 @@ A WhatsApp-integrated expense management application that allows users to track,
 
 ## Usage
 
-Send messages to your WhatsApp number (the one you scanned with):
+Send messages to your Telegram bot:
 
 ### Add Expense
 ```
@@ -126,49 +123,37 @@ Help
 expenses-tracker/
 ├── src/
 │   ├── index.js              # Application entry point
-│   ├── whatsapp/
-│   │   ├── client.js         # WhatsApp client setup
-│   │   └── handlers.js       # Message handlers
+│   ├── telegram/
+│   │   ├── bot.js            # Telegram bot setup (polling)
+│   │   ├── handlers.js       # Message handlers
+│   │   └── index.js          # Module exports
 │   ├── services/
 │   │   ├── nlp.js            # Natural language processing
 │   │   ├── messageHandler.js # Message processing logic
 │   │   └── reportGenerator.js# Report generation
 │   ├── database/
 │   │   ├── connection.js     # Database connection
+│   │   ├── setup.js          # Schema initialization
+│   │   ├── schema.sql        # Database schema
 │   │   └── models/           # Database models
 │   └── utils/
 │       ├── validators.js
 │       └── formatters.js
-├── .wwebjs_auth/             # WhatsApp session (auto-generated)
 ├── package.json
 ├── .env.example
+├── DEPLOYMENT.md
 └── README.md
 ```
 
-## Deployment
+## Deployment (VPS)
 
-### Railway (Recommended)
+This project is designed to run on your own VPS with PM2 for process management.
 
-1. Create account at [railway.app](https://railway.app)
-2. Connect your GitHub repository
-3. Add PostgreSQL database
-4. Set environment variables
-5. Deploy
-
-### Render
-
-1. Create account at [render.com](https://render.com)
-2. Create new Web Service
-3. Connect your repository
-4. Set environment variables
-5. Deploy
-
-### VPS / DigitalOcean
-
-1. Set up a server (Ubuntu recommended)
+1. Set up a VPS (Ubuntu/Debian recommended)
 2. Install Node.js 18+ and PostgreSQL
-3. Clone repository and install dependencies
-4. Set up PM2 for process management:
+3. Clone the repository and install dependencies
+4. Configure `.env` with your credentials
+5. Run the bot with PM2:
    ```bash
    npm install -g pm2
    pm2 start src/index.js --name expenses-tracker
@@ -176,27 +161,7 @@ expenses-tracker/
    pm2 save
    ```
 
-## Important Notes
-
-### WhatsApp Session
-
-- Session is stored in `.wwebjs_auth/` folder
-- Keep this folder persistent across deployments
-- If session is lost, you'll need to scan QR code again
-
-### Limitations
-
-- **NOT compatible with serverless** (Vercel, AWS Lambda)
-- Requires persistent connection to WhatsApp
-- One WhatsApp account per instance
-- Unofficial API - use responsibly
-
-### Best Practices
-
-- Don't send too many messages in a short time
-- Don't use for marketing/spam
-- Use for personal expense tracking only
-- Consider using a secondary WhatsApp number
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the full step-by-step guide.
 
 ## Scripts
 
@@ -209,23 +174,15 @@ npm test           # Run tests
 
 ## Troubleshooting
 
-### QR Code not appearing
-- Make sure you're running in a terminal that supports QR display
-- Check if puppeteer dependencies are installed
-
-### WhatsApp disconnected
-- The app will auto-reconnect
-- If persistent, delete `.wwebjs_auth/` folder and scan QR again
+### Bot not responding
+- Verify your `TELEGRAM_BOT_TOKEN` is correct
+- Check PM2 logs: `pm2 logs expenses-tracker`
 
 ### Database connection error
-- Verify DATABASE_URL is correct
+- Verify `DATABASE_URL` is correct
 - Check if PostgreSQL is running
-- Ensure database exists
+- Ensure the database and user exist
 
 ## License
 
 MIT
-
-## Disclaimer
-
-This project uses [whatsapp-web.js](https://github.com/pedroslopez/whatsapp-web.js), an unofficial WhatsApp API. WhatsApp does not allow bots or unofficial clients on their platform. Use at your own risk. For personal use, the risk of being blocked is minimal.

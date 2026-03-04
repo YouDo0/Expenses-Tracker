@@ -1,13 +1,14 @@
-# Koyeb Deployment Guide
+# Deployment Guide
 
-This guide explains how to deploy the Expenses Tracker Telegram bot to Koyeb for 24/7 operation.
+This guide explains how to deploy the Expenses Tracker Telegram bot on your own VPS for 24/7 operation.
+
+Unlike WhatsApp-based bots, Telegram bots don't require session persistence or QR code scanning, making deployment simpler and more reliable. The bot uses polling — no webhook setup is needed.
 
 ## Prerequisites
 
-1. **GitHub Account** - Your code must be on GitHub
-2. **Koyeb Account** - Sign up at [koyeb.com](https://www.koyeb.com)
-3. **Telegram Bot Token** - From [@BotFather](https://t.me/botfather)
-4. **Supabase Account** - Sign up at [supabase.com](https://supabase.com) (free tier available)
+1. **VPS** — Ubuntu/Debian server with SSH access
+2. **Telegram Bot Token** — From [@BotFather](https://t.me/botfather)
+3. **Domain (optional)** — If you want to access logs via web
 
 ## Step 1: Create Telegram Bot
 
@@ -16,185 +17,149 @@ This guide explains how to deploy the Expenses Tracker Telegram bot to Koyeb for
 3. Copy the bot token (looks like `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ`)
 4. (Optional) Set commands with `/setcommands`
 
-## Step 2: Set Up Supabase Database
+## Step 2: Prepare Your VPS
 
-1. **Create a Supabase account**:
-   - Go to [supabase.com](https://supabase.com)
-   - Sign up (GitHub login recommended)
-
-2. **Create a new project**:
-   - Click **New Project**
-   - Enter project details:
-     - **Name**: `expenses-tracker` (or any name)
-     - **Database Password**: Generate a strong password (save it!)
-     - **Region**: Choose nearest to your users (or same as Koyeb region)
-   - Click **Create new project**
-   - Wait for the project to be provisioned (~1-2 minutes)
-
-3. **Get your database connection string**:
-   - Go to **Project Settings** (gear icon) → **Database**
-   - Scroll down to **Connection Info**
-   - Find **Connection string** dropdown → select **Node.js** (or "URI")
-   - Copy the connection string, it looks like:
-     ```
-     postgresql://postgres:[YOUR-PASSWORD]@db.xxx.supabase.co:5432/postgres
-     ```
-
-4. **Optional: Set up database schema via Supabase dashboard**:
-   - Go to **SQL Editor** in the left sidebar
-   - You can run queries directly here instead of using `npm run db:setup`
-   - Or use the **Table Editor** to view/edit data visually
-
-## Step 3: Push Code to GitHub
+### Install Node.js 18+
 
 ```bash
-# Initialize git if not already done
-git init
-git add .
-git commit -m "Initial commit"
-
-# Create repository on GitHub first, then:
-git remote add origin https://github.com/YOUR_USERNAME/expenses-tracker.git
-git branch -M main
-git push -u origin main
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+node -v  # Verify installation
 ```
 
-## Step 4: Deploy to Koyeb
+### Install PostgreSQL
 
-### Create the App
+```bash
+sudo apt-get install -y postgresql postgresql-contrib
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+```
 
-1. Go to [Koyeb Dashboard](https://app.koyeb.com)
-2. Click **Apps** → **Create App**
-3. Select **Git** as deployment source
-4. Choose **GitHub** and authorize if needed
-5. Select your `expenses-tracker` repository
-6. Configure:
+### Create Database & User
 
-   **Basic Settings:**
-   - Name: `expenses-tracker`
-   - Region: Choose nearest to your users
+```bash
+sudo -u postgres psql
+```
 
-   **Build Settings:**
-   - Build command: `npm install`
-   - Build context: `/` (root)
+Inside the PostgreSQL shell:
 
-   **Run Settings:**
-   - Start command: `npm start`
-   - Port: (not needed for this bot)
+```sql
+CREATE USER expenses_user WITH PASSWORD 'your_strong_password';
+CREATE DATABASE expenses_tracker OWNER expenses_user;
+GRANT ALL PRIVILEGES ON DATABASE expenses_tracker TO expenses_user;
+\q
+```
 
-7. **Environment Variables** (click **Add Variable** for each):
-   - `NODE_ENV` = `production`
-   - `DATABASE_URL` = (your Supabase connection string from Step 2.3)
-   - `TELEGRAM_BOT_TOKEN` = (your bot token from BotFather)
-   - `LOG_LEVEL` = `info` (optional)
+Your `DATABASE_URL` will be:
+```
+postgresql://expenses_user:your_strong_password@localhost:5432/expenses_tracker
+```
 
-8. Click **Deploy**
+## Step 3: Deploy the Application
 
-## Step 5: Initialize Database
+### Clone & Install
 
-### Option A: Via Supabase Dashboard (Recommended)
+```bash
+cd /home/$USER
+git clone <repository-url> expenses-tracker
+cd expenses-tracker
+npm install
+```
 
-1. Go to your Supabase project
-2. Click **SQL Editor** in the left sidebar
-3. Click **New Query**
-4. Copy the contents of `src/database/schema.sql` from your repository
-5. Paste and click **Run** to create all tables
+### Configure Environment
 
-### Option B: Via Koyeb Terminal
+```bash
+cp .env.example .env
+nano .env
+```
 
-1. Go to your app in Koyeb Dashboard
-2. Click on the deployment
-3. Click **Terminal** (or use SSH)
-4. Run:
-   ```bash
-   npm run db:setup
-   ```
+Set the following variables:
 
-## Step 6: Test Your Bot
+```env
+TELEGRAM_BOT_TOKEN=your-bot-token-from-botfather
+DATABASE_URL=postgresql://expenses_user:your_strong_password@localhost:5432/expenses_tracker
+NODE_ENV=production
+LOG_LEVEL=info
+```
+
+### Initialize Database Schema
+
+```bash
+npm run db:setup
+```
+
+## Step 4: Run with PM2
+
+PM2 keeps your bot running 24/7 and auto-restarts it on crash or server reboot.
+
+```bash
+# Install PM2 globally
+npm install -g pm2
+
+# Start the bot
+pm2 start src/index.js --name expenses-tracker
+
+# Enable auto-start on server reboot
+pm2 startup
+pm2 save
+```
+
+### Useful PM2 Commands
+
+```bash
+pm2 status                    # Check running processes
+pm2 logs expenses-tracker     # View live logs
+pm2 restart expenses-tracker  # Restart the bot
+pm2 stop expenses-tracker     # Stop the bot
+pm2 delete expenses-tracker   # Remove from PM2
+```
+
+## Step 5: Test Your Bot
 
 1. Open Telegram
 2. Search for your bot by name
 3. Send a message like: `Spent $10 on coffee`
-4. You should get a response!
+4. You should get a response confirming the expense!
 
-## Managing Your Deployment
+## Updating the Bot
 
-### View Logs
+When you push new code to your repository:
 
 ```bash
-# In Koyeb Dashboard, go to your app → Logs
-# Or via Koyeb CLI:
-koyeb logs expenses-tracker
+cd /home/$USER/expenses-tracker
+git pull origin main
+npm install         # In case of new dependencies
+pm2 restart expenses-tracker
 ```
-
-### Redeploy
-
-Push new code to GitHub and Koyeb auto-deploys, or:
-- Dashboard: App → **Redeploy**
-- CLI: `koyeb redeploy expenses-tracker`
-
-### Update Environment Variables
-
-1. Go to App → **Settings** → **Environment Variables**
-2. Modify the variable
-3. **Save** and the app restarts automatically
-
-## Scaling & High Availability
-
-For production, consider:
-
-1. **Enable Health Checks** - Koyeb can restart failed instances
-2. **Add Regions** - Deploy closer to users globally
-3. **Backup Database** - Regular PostgreSQL backups
-
-## Troubleshooting
-
-### Bot Not Responding
-
-1. Check logs for errors
-2. Verify `TELEGRAM_BOT_TOKEN` is correct
-3. Ensure database connection is valid
-4. Check that database schema is initialized (`npm run db:setup`)
-
-### Database Connection Errors
-
-- Verify `DATABASE_URL` format from Supabase: `postgresql://postgres:[YOUR-PASSWORD]@db.xxx.supabase.co:5432/postgres`
-- Make sure you replaced `[YOUR-PASSWORD]` with your actual database password
-- Check that your Supabase project is active (not paused)
-- Verify the database region is accessible from Koyeb
-
-### App Keeps Restarting
-
-- Check logs for uncaught errors
-- Verify all dependencies are in `package.json`
-- Ensure `npm start` command works locally
-
-## Cost Optimization
-
-- Koyeb's free tier includes 512MB RAM and shared CPU
-- For a Telegram bot, this is usually sufficient
-- Monitor usage in dashboard and upgrade if needed
 
 ## Security Best Practices
 
-1. **Never commit** `.env` file to Git
+1. **Never commit** your `.env` file to Git
 2. Use strong PostgreSQL passwords
 3. Rotate bot tokens if compromised
 4. Keep dependencies updated (`npm audit fix`)
-5. Set up database backups
+5. Set up a firewall (UFW):
+   ```bash
+   sudo ufw allow OpenSSH
+   sudo ufw enable
+   ```
+6. Keep your VPS updated:
+   ```bash
+   sudo apt update && sudo apt upgrade -y
+   ```
 
-## Alternative: Docker Deployment
+## Troubleshooting
 
-If you prefer Docker, Koyeb supports it:
+### Bot not responding
+- Check PM2 status: `pm2 status`
+- Check logs: `pm2 logs expenses-tracker`
+- Ensure bot token is correct in `.env`
 
-```dockerfile
-# Dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-CMD ["npm", "start"]
-```
+### Database connection error
+- Verify `DATABASE_URL` is correct
+- Check if PostgreSQL is running: `sudo systemctl status postgresql`
+- Ensure the database and user exist
 
-Then choose **Docker** as deployment type in Koyeb.
+### PM2 not auto-starting after reboot
+- Run `pm2 startup` again and follow the instructions
+- Then `pm2 save` to persist the process list

@@ -31,3 +31,5 @@ build/
 # Misc
 *.tmp
 *.temp
+
+DEPLOYMENT.md

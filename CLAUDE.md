@@ -31,21 +31,40 @@ npm run db:setup   # Initialize database schema (executes src/database/schema.sq
 4. Run `npm start`
 5. Start messaging your bot on Telegram!
 
-### Production Deployment
+### Production Deployment (VPS)
 
-#### Using PM2 (VPS/Server)
+1. SSH into your VPS and clone the repository:
+```bash
+git clone <repository-url>
+cd expenses-tracker
+npm install
+```
+
+2. Configure environment:
+```bash
+cp .env.example .env
+nano .env  # Set TELEGRAM_BOT_TOKEN, DATABASE_URL, NODE_ENV=production
+```
+
+3. Initialize the database:
+```bash
+npm run db:setup
+```
+
+4. Install PM2 and start the application:
 ```bash
 npm install -g pm2
 pm2 start src/index.js --name expenses-tracker
-pm2 startup
+pm2 startup   # Enable auto-start on server reboot
 pm2 save
 ```
 
-#### Using Render/Railway/Fly.io
-1. Set environment variables in dashboard
-2. Build command: `npm install`
-3. Start command: `npm start`
-4. No webhook setup needed - bot uses polling
+5. Useful PM2 commands:
+```bash
+pm2 logs expenses-tracker   # View logs
+pm2 restart expenses-tracker # Restart the bot
+pm2 status                   # Check status
+```
 
 ## Architecture
 
@@ -99,16 +118,9 @@ The NLP service recognizes various expense formats:
 - `Received $200 from client` - Credit transaction
 - `Show expenses from last week` - chrono-node date parsing
 
-## Deployment Options
+## Deployment
 
-| Platform | Free Tier | Notes |
-|----------|-----------|-------|
-| Render | Yes | May need ping service for free tier |
-| Railway | $5 credit/mo | Good free option |
-| Fly.io | Yes | Requires CLI setup |
-| VPS (PM2) | No | Most control, requires server |
-
-Telegram bots work well on free tiers since they don't require persistent sessions like WhatsApp.
+This project is deployed on a **personal VPS** using **PM2** for process management and **PostgreSQL** installed directly on the server. See `DEPLOYMENT.md` for the full step-by-step guide.
 
 ## Environment Variables
 
