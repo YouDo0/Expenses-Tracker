@@ -238,7 +238,10 @@ function recognizeIntent(message) {
   }
 
   // Manage categories
-  if (/\b(category|categories|kategori)\b/i.test(messageLower)) {
+  // Only treat as a category command if "category" is NOT used as a parameter (e.g., "Category: food")
+  // A parameter form looks like "category:" or "cat:" followed by a value
+  const hasCategoryParam = /\b(category|cat):\s*\w+/i.test(messageLower);
+  if (!hasCategoryParam && /\b(category|categories|kategori)\b/i.test(messageLower)) {
     if (/\b(add|create|new|tambah|buat)\b/i.test(messageLower)) {
       return 'add_category';
     }

@@ -148,8 +148,8 @@ async function handleEditExpense(user, message) {
   const messageLower = message.toLowerCase();
   const updates = {};
 
-  // Update amount
-  const amountMatch = message.match(/amount:\s*(?:Rp|\$)?([\d,.]+)/i);
+  // Update amount — allow optional space before colon (e.g. "Amount : Rp60000")
+  const amountMatch = message.match(/amount\s*:\s*(?:Rp|\$)?([\d,.]+)/i);
   if (amountMatch) {
     const { validateAmount } = require('../utils/validators');
     const amount = validateAmount(amountMatch[1]);
@@ -158,18 +158,23 @@ async function handleEditExpense(user, message) {
     }
   }
 
-  // Update category
-  const categoryMatch = message.match(/category:\s*(\w+)/i);
+  // Update category — allow optional space before colon (e.g. "Category : Food")
+  const categoryMatch = message.match(/category\s*:\s*(\w+)/i);
   if (categoryMatch) {
     const categoryName = categoryMatch[1];
     const category = await Category.getOrCreate(user.id, categoryName);
     updates.categoryId = category.id;
   }
 
-  // Update description
-  const descMatch = message.match(/description:\s*(.+?)(?:\s+amount:|\s+category:|$)/i);
+  // Update description — allow optional space before colon (e.g. "Description : Makan Malam")
+  const descMatch = message.match(/description\s*:\s*(.+?)(?:\s+amount\s*:|\s+category\s*:|$)/i);
   if (descMatch) {
     updates.description = descMatch[1].trim().substring(0, 200);
+  }
+
+  // Guard: nothing to update
+  if (Object.keys(updates).length === 0) {
+    return "✗ Error: No valid fields to update. Use: Amount: Rp60000 | Category: Food | Description: text";
   }
 
   // Apply updates
