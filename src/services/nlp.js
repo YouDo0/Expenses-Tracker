@@ -10,7 +10,7 @@ const DEBIT_KEYWORDS = ['spent', 'bought', 'paid', 'expense', 'purchase', 'cost'
 const CREDIT_KEYWORDS = ['received', 'income', 'earned', 'credit', 'salary', 'payment', 'terima', 'dapat', 'gaji'];
 
 // Category keywords mapping
-const CATEGORY_KEYWORDS = {
+const CATEGORY_KEYWORDS = { 
   'food': ['food', 'groceries', 'lunch', 'dinner', 'breakfast', 'coffee', 'restaurant', 'meal', 'eat', 'makan', 'makanan'],
   'transportation': ['transport', 'taxi', 'uber', 'grab', 'gojek', 'gas', 'fuel', 'parking', 'metro', 'bus', 'train', 'bensin', 'parkir'],
   'entertainment': ['movie', 'cinema', 'game', 'concert', 'music', 'netflix', 'spotify', 'hiburan', 'film'],
