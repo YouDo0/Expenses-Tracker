@@ -20,7 +20,13 @@ async function handleMessage(userId, text, msg) {
 
     // Send response
     if (response) {
-      await sendTelegramMessage(userId, response);
+      // Handle object responses (e.g., confirmation_required)
+      let messageToSend = response;
+      if (typeof response === 'object' && response.status === 'confirmation_required') {
+        messageToSend = response.summary;
+      }
+
+      await sendTelegramMessage(userId, messageToSend);
 
       const duration = Date.now() - startTime;
       console.log(`📤 Response sent (${duration}ms)`);
