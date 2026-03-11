@@ -40,3 +40,16 @@ CREATE TABLE IF NOT EXISTS expenses (
 CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_user_date ON expenses(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id);
+
+-- User limits table
+CREATE TABLE IF NOT EXISTS user_limits (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    limit_type VARCHAR(10) CHECK (limit_type IN ('daily', 'monthly')) NOT NULL,
+    category_id INTEGER REFERENCES categories(id) ON DELETE CASCADE,
+    amount DECIMAL(10, 2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, limit_type, category_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_limits_user ON user_limits(user_id);

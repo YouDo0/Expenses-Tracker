@@ -172,6 +172,55 @@ function truncate(str, maxLength) {
   return str.substring(0, maxLength - 2) + '..';
 }
 
+/**
+ * Format balance summary for display
+ * @param {Object} totals - All-time totals object
+ * @param {Array} recentIncome - Recent credit transactions
+ * @returns {string} Formatted balance summary
+ */
+function formatBalanceSummary(totals, recentIncome) {
+  let message = `💰 <b>YOUR BALANCE</b>\n`;
+  message += `${'═'.repeat(35)}\n\n`;
+
+  message += `📥 <b>Total Income:</b> ${formatCurrency(totals.totalCredits)}\n`;
+  message += `📤 <b>Total Expenses:</b> ${formatCurrency(totals.totalDebits)}\n`;
+  message += `${'─'.repeat(35)}\n`;
+  message += `💵 <b>Net Balance:</b> ${formatCurrency(totals.netBalance)}\n\n`;
+
+  if (recentIncome && recentIncome.length > 0) {
+    message += `<b>Recent Income:</b>\n`;
+    recentIncome.forEach((income, idx) => {
+      const emoji = income.transaction_type === 'credit' ? '📥' : '📤';
+      message += `${idx + 1}. ${emoji} ${formatCurrency(parseFloat(income.amount))} - ${escapeHtml(income.description)}\n`;
+      message += `   📅 ${formatDate(income.date)}\n`;
+    });
+  } else {
+    message += `<i>No income recorded yet.</i>`;
+  }
+
+  return message;
+}
+
+/**
+ * Format limit notification message
+ * @param {Object} limit - Limit object with limit_type, category_name, amount
+ * @param {number} currentSpending - Current spending amount
+ * @param {number} percentage - Percentage of limit used
+ * @returns {string} Formatted notification
+ */
+function formatLimitNotification(limit, currentSpending, percentage) {
+  const typeLabel = limit.limit_type === 'daily' ? 'Harian' : 'Bulanan';
+  const categoryName = limit.category_name || 'All Categories';
+
+  let message = `⚠️ <b>LIMIT EXCEEDED!</b>\n\n`;
+  message += `📊 Limit ${typeLabel} untuk <b>${categoryName}</b> telah melampaui batas!\n\n`;
+  message += `💰 Limit: ${formatCurrency(limit.amount)}\n`;
+  message += `📤 Spending: ${formatCurrency(currentSpending)}\n`;
+  message += `📈 Used: ${percentage.toFixed(1)}%`;
+
+  return message;
+}
+
 module.exports = {
   escapeHtml,
   formatCurrency,
@@ -180,5 +229,7 @@ module.exports = {
   formatExpenseList,
   formatMonthlyReport,
   formatCategoryList,
-  truncate
+  truncate,
+  formatBalanceSummary,
+  formatLimitNotification
 };

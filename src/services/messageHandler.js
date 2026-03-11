@@ -2,12 +2,13 @@
  * Message Handler Service
  */
 
+const db = require('../database/connection');
 const { User, Category, Expense } = require('../database/models');
 const nlp = require('./nlp');
 const aiParser = require('./aiParser');
 const reportGenerator = require('./reportGenerator');
 const confirmationStore = require('./confirmationStore');
-const { formatExpenseList, formatCategoryList, formatCurrency, formatDate } = require('../utils/formatters');
+const { formatExpenseList, formatCategoryList, formatCurrency, formatDate, formatBalanceSummary, formatLimitNotification } = require('../utils/formatters');
 const { validateCategoryName, validateExpenseId, validateAmount } = require('../utils/validators');
 
 /**
@@ -47,6 +48,10 @@ async function processMessage(userId, message) {
         return await handleDeleteCategory(user, message);
       case 'view_categories':
         return await handleViewCategories(user);
+      case 'view_balance':
+        return await handleViewBalance(user);
+      case 'set_limit':
+        return await handleSetLimit(user, message);
       case 'help':
         return getHelpMessage();
       default:
@@ -150,7 +155,71 @@ async function saveTransaction(user, transaction) {
   const categoryName = category ? category.name : 'Uncategorized';
   const emoji = (transaction.transactionType || 'debit') === 'debit' ? '📤' : '📥';
 
-  return `✓ Expense added!\n\n${emoji} <b>${formatCurrency(transaction.amount)}</b> - ${expense.description}\n📅 ${formatDate(expense.date)}\n🏷️ ${categoryName}\n<i>ID: ${expense.id}</i>`;
+  let response = `✓ Expense added!\n\n${emoji} <b>${formatCurrency(transaction.amount)}</b> - ${expense.description}\n📅 ${formatDate(expense.date)}\n🏷️ ${categoryName}\n<i>ID: ${expense.id}</i>`;
+
+  // Check spending limits for debit transactions
+  if ((transaction.transactionType || 'debit') === 'debit' && category) {
+    const limitNotification = await checkSpendingLimits(user.id, category.id);
+    if (limitNotification) {
+      response += `\n\n${limitNotification}`;
+    }
+  }
+
+  return response;
+}
+
+/**
+ * Check spending limits after adding an expense
+ * @param {number} userId - User ID
+ * @param {number} categoryId - Category ID
+ * @returns {Promise<string|null>} Notification message or null
+ */
+async function checkSpendingLimits(userId, categoryId) {
+  const { Limit } = require('../database/models');
+  const limits = await Limit.getApplicableLimits(userId, categoryId);
+
+  if (limits.length === 0) {
+    return null;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+  for (const limit of limits) {
+    let currentSpending = 0;
+
+    if (limit.limit_type === 'daily') {
+      // Get today's spending for the category
+      const result = await db.query(
+        `SELECT COALESCE(SUM(amount), 0) as total FROM expenses
+         WHERE user_id = $1 AND category_id = $2 AND date = $3 AND transaction_type = 'debit'`,
+        [userId, categoryId, today]
+      );
+      currentSpending = parseFloat(result.rows[0].total);
+    } else if (limit.limit_type === 'monthly') {
+      // Get this month's spending for the category
+      const result = await db.query(
+        `SELECT COALESCE(SUM(amount), 0) as total FROM expenses
+         WHERE user_id = $1 AND category_id = $2 AND date >= $3 AND date <= $4 AND transaction_type = 'debit'`,
+        [userId, categoryId, startOfMonth, today]
+      );
+      currentSpending = parseFloat(result.rows[0].total);
+    }
+
+    const percentage = (currentSpending / parseFloat(limit.amount)) * 100;
+
+    // Notify if limit exceeded or close to being exceeded (90%+)
+    if (percentage >= 100) {
+      return formatLimitNotification(limit, currentSpending, percentage);
+    } else if (percentage >= 90) {
+      const typeLabel = limit.limit_type === 'daily' ? 'Harian' : 'Bulanan';
+      const categoryName = limit.category_name || 'All Categories';
+      return `⚠️ <b>Limit Warning!</b>\n\n📊 Limit ${typeLabel} untuk <b>${categoryName}</b> sudah ${percentage.toFixed(0)}% terpakai.\n💰 Limit: ${formatCurrency(limit.amount)}\n📤 Spending: ${formatCurrency(currentSpending)}`;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -296,11 +365,15 @@ async function handleViewExpenses(user, message) {
     }
   }
 
+  // Determine if no date filters are specified - use ascending order with default limit 10
+  const hasDateFilters = filters.startDate !== null || filters.endDate !== null;
+
   const expenses = await Expense.findByUser(user.id, {
     startDate: filters.startDate,
     endDate: filters.endDate,
     categoryId: categoryId,
-    limit: filters.limit
+    limit: hasDateFilters ? filters.limit : 10,
+    orderAsc: !hasDateFilters
   });
 
   if (expenses.length === 0) {
@@ -481,44 +554,96 @@ async function handleViewCategories(user) {
 }
 
 /**
+ * Handle view balance intent
+ */
+async function handleViewBalance(user) {
+  const totals = await Expense.getAllTimeTotals(user.id);
+  const recentIncome = await Expense.getRecentIncome(user.id, 5);
+
+  return formatBalanceSummary(totals, recentIncome);
+}
+
+/**
+ * Handle set limit intent
+ */
+async function handleSetLimit(user, message) {
+  const params = nlp.parseLimitParams(message);
+
+  if (!params.amount) {
+    return "✗ Error: Please specify the limit amount. Example: 'set monthly limit for Food 500k'";
+  }
+
+  // Get category ID if category name specified
+  let categoryId = null;
+  if (params.categoryName) {
+    const category = await Category.findByName(user.id, params.categoryName);
+    if (!category) {
+      return `✗ Error: Category '${params.categoryName}' not found. Use "Show categories" to see available categories.`;
+    }
+    categoryId = category.id;
+  }
+
+  // Import the Limit model
+  const { Limit } = require('../database/models');
+
+  // Set the limit
+  await Limit.setLimit(user.id, params.limitType, categoryId, params.amount);
+
+  const typeLabel = params.limitType === 'daily' ? 'Harian' : 'Bulanan';
+  const categoryName = params.categoryName || 'All Categories';
+
+  return `✓ Limit ${typeLabel} berhasil diset!\n\n📊 Kategori: ${categoryName}\n💰 Batas: ${formatCurrency(params.amount)}`;
+}
+
+/**
  * Get help message
  */
 function getHelpMessage() {
   return `📱 <b>EXPENSES TRACKER - HELP</b>
 
-📝 <b>ADD EXPENSE:</b>
-  "Makan siang Rp50000"
-  "Kopi Rp15000 Category: Food"
-  "Gaji Rp5000000, Category: Income"
-  "Belanja 50k Category: Shopping"
+━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-👁️ <b>VIEW EXPENSES:</b>
-  "Show expenses"
-  "Show expenses from last week"
-  "Show expenses Category: Food"
-  "Show last 10 expenses"
+📝 <b>MENAMBAH EXPENSE:</b>
+   Makan siang Rp50000
+   Kopi Rp15000 Category: Food
+   Gaji Rp5000000, Category: Income
+   Belanja 50k Category: Shopping
 
-✏️ <b>EDIT EXPENSE:</b>
-  "Edit expense 123 Amount: Rp60000"
-  "Update expense 123 Category: Food"
+👁️ <b>MELIHAT EXPENSE:</b>
+   Show expenses
+   Show expenses from last week
+   Show expenses Category: Food
+   Show last 10 expenses
 
-🗑️ <b>DELETE EXPENSE:</b>
-  "Delete expense 123"
+💰 <b>MELIHAT SALDO:</b>
+   Show balance
+   Saldo
 
-📊 <b>MONTHLY REPORT:</b>
-  "Show monthly report"
-  "Generate report for January"
+✏️ <b>MENGEDIT EXPENSE:</b>
+   Edit expense 123 Amount: Rp60000
+   Update expense 123 Category: Food
 
-🏷️ <b>CATEGORIES:</b>
-  "Add category Travel"
-  "Show categories"
-  "Delete category Travel"
+🗑️ <b>MENGHAPUS EXPENSE:</b>
+   Delete expense 123
 
-💡 <b>SUPPORTED FORMATS:</b>
-  Rp50000, 50k, 50rb, IDR 50000
+📊 <b>LAPORAN BULANAN:</b>
+   Show monthly report
+   Generate report for January
 
-❓ <b>HELP:</b>
-  "Help" or "?"`;
+🏷️ <b>KATEGORI:</b>
+   Add category Travel
+   Show categories
+   Delete category Travel
+
+📈 <b>ATUR LIMIT:</b>
+   set monthly limit for Food 500k
+   set daily limit 200k
+
+💡 <b>FORMAT YANG DIDUKUNG:</b>
+   Rp50000, 50k, 50rb, IDR 50000
+
+❓ <b>BANTUAN:</b>
+   Help atau ?`;
 }
 
 /**

@@ -237,6 +237,16 @@ function recognizeIntent(message) {
     return 'generate_report';
   }
 
+  // View balance
+  if (/\b(balance|saldo)\b/i.test(messageLower)) {
+    return 'view_balance';
+  }
+
+  // Set limit
+  if (/\b(set|atur)\b.*\b(limit|batas)\b/i.test(messageLower)) {
+    return 'set_limit';
+  }
+
   // Manage categories
   // Only treat as a category command if "category" is NOT used as a parameter (e.g., "Category: food")
   // A parameter form looks like "category:" or "cat:" followed by a value
@@ -350,10 +360,46 @@ function parseReportMonth(message) {
   return { year: today.getFullYear(), month: today.getMonth() + 1 };
 }
 
+/**
+ * Parse limit parameters from message
+ * @param {string} message - User message
+ * @returns {Object} {limitType, categoryName, amount}
+ */
+function parseLimitParams(message) {
+  const messageLower = message.toLowerCase();
+  const params = {
+    limitType: null,
+    categoryName: null,
+    amount: null
+  };
+
+  // Parse limit type (daily/monthly)
+  if (/\bdaily\b/i.test(messageLower)) {
+    params.limitType = 'daily';
+  } else if (/\b(monthly|bulanan)\b/i.test(messageLower)) {
+    params.limitType = 'monthly';
+  } else {
+    // Default to monthly if not specified
+    params.limitType = 'monthly';
+  }
+
+  // Parse category name - look for patterns like "for Food" or "Category: Food"
+  const categoryMatch = messageLower.match(/(?:for|category:\s*)\s*(\w+)/i);
+  if (categoryMatch) {
+    params.categoryName = categoryMatch[1];
+  }
+
+  // Parse amount
+  params.amount = extractAmount(message);
+
+  return params;
+}
+
 module.exports = {
   extractEntities,
   recognizeIntent,
   parseViewFilters,
   parseReportMonth,
+  parseLimitParams,
   extractAmount
 };

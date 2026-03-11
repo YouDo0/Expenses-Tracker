@@ -33,39 +33,41 @@ async function findByUser(userId, options = {}) {
     endDate,
     categoryId,
     limit = 20,
-    offset = 0
+    offset = 0,
+    orderAsc = false
   } = options;
-  
+
   let query = `
-    SELECT e.*, c.name as category_name 
-    FROM expenses e 
-    LEFT JOIN categories c ON e.category_id = c.id 
+    SELECT e.*, c.name as category_name
+    FROM expenses e
+    LEFT JOIN categories c ON e.category_id = c.id
     WHERE e.user_id = $1
   `;
   const params = [userId];
   let paramIndex = 2;
-  
+
   if (startDate) {
     query += ` AND e.date >= $${paramIndex}`;
     params.push(startDate);
     paramIndex++;
   }
-  
+
   if (endDate) {
     query += ` AND e.date <= $${paramIndex}`;
     params.push(endDate);
     paramIndex++;
   }
-  
+
   if (categoryId) {
     query += ` AND e.category_id = $${paramIndex}`;
     params.push(categoryId);
     paramIndex++;
   }
-  
-  query += ` ORDER BY e.date DESC, e.id DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+
+  const orderDirection = orderAsc ? 'ASC' : 'DESC';
+  query += ` ORDER BY e.date ${orderDirection}, e.id ${orderDirection} LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
   params.push(limit, offset);
-  
+
   const result = await db.query(query, params);
   return result.rows;
 }
@@ -210,17 +212,17 @@ async function remove(id, userId) {
 async function getMonthlyTotals(userId, year, month) {
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 0);
-  
+
   const result = await db.query(
-    `SELECT 
+    `SELECT
        COALESCE(SUM(CASE WHEN transaction_type = 'debit' THEN amount ELSE 0 END), 0) as total_debits,
        COALESCE(SUM(CASE WHEN transaction_type = 'credit' THEN amount ELSE 0 END), 0) as total_credits,
        COUNT(*) as count
-     FROM expenses 
+     FROM expenses
      WHERE user_id = $1 AND date >= $2 AND date <= $3`,
     [userId, startDate, endDate]
   );
-  
+
   const row = result.rows[0];
   return {
     totalDebits: parseFloat(row.total_debits),
@@ -230,6 +232,50 @@ async function getMonthlyTotals(userId, year, month) {
   };
 }
 
+/**
+ * Get all-time totals for a user
+ * @param {number} userId - User ID
+ * @returns {Promise<Object>} Totals object
+ */
+async function getAllTimeTotals(userId) {
+  const result = await db.query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN transaction_type = 'debit' THEN amount ELSE 0 END), 0) as total_debits,
+       COALESCE(SUM(CASE WHEN transaction_type = 'credit' THEN amount ELSE 0 END), 0) as total_credits,
+       COUNT(*) as count
+     FROM expenses
+     WHERE user_id = $1`,
+    [userId]
+  );
+
+  const row = result.rows[0];
+  return {
+    totalDebits: parseFloat(row.total_debits),
+    totalCredits: parseFloat(row.total_credits),
+    netBalance: parseFloat(row.total_credits) - parseFloat(row.total_debits),
+    count: parseInt(row.count)
+  };
+}
+
+/**
+ * Get recent credit transactions
+ * @param {number} userId - User ID
+ * @param {number} limit - Number of records to return
+ * @returns {Promise<Array>} Array of credit expenses
+ */
+async function getRecentIncome(userId, limit = 5) {
+  const result = await db.query(
+    `SELECT e.*, c.name as category_name
+     FROM expenses e
+     LEFT JOIN categories c ON e.category_id = c.id
+     WHERE e.user_id = $1 AND e.transaction_type = 'credit'
+     ORDER BY e.date DESC, e.id DESC
+     LIMIT $2`,
+    [userId, limit]
+  );
+  return result.rows;
+}
+
 module.exports = {
   findById,
   findByUser,
@@ -237,5 +283,7 @@ module.exports = {
   create,
   update,
   remove,
-  getMonthlyTotals
+  getMonthlyTotals,
+  getAllTimeTotals,
+  getRecentIncome
 };
