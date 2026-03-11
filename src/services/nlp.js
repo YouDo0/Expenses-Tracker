@@ -66,23 +66,57 @@ function extractEntities(message) {
 function extractAmount(message) {
   // Patterns to match amounts (Rupiah patterns first)
   const patterns = [
-    /(?:Rp|IDR)\s?[\d,.]+/i,             // Rp50000, IDR 50.000
-    /[\d,]+\.?\d*\s*(?:k|rb|ribu)/i,     // 50k, 50rb, 50ribu
-    /\$[\d,]+\.?\d*/,                    // $50, $50.99
-    /[\d,]+\.?\d*\s*(?:dollars?|usd)/i,  // 50 dollars
-    /(?:amount|price|cost):\s*(?:Rp|\$)?[\d,]+\.?\d*/i,  // Amount: Rp50000
-    /\d+\.?\d*/                          // Fallback: any number
+    /(?:Rp|IDR)\s?[\d,.]+/gi,             // Rp50000, IDR 50.000
+    /[\d,]+\.?\d*\s*(?:k|rb|ribu)/gi,     // 50k, 50rb, 50ribu
+    /\$[\d,]+\.?\d*/g,                    // $50, $50.99
+    /[\d,]+\.?\d*\s*(?:dollars?|usd)/gi,  // 50 dollars
+    /(?:amount|price|cost):\s*(?:Rp|\$)?[\d,]+\.?\d*/gi,  // Amount: Rp50000
+    /\d+\.?\d*/g                          // Fallback: any number
   ];
 
   for (const pattern of patterns) {
-    const match = message.match(pattern);
-    if (match) {
-      const amount = validateAmount(match[0]);
-      if (amount) return amount;
+    const matches = message.match(pattern);
+    if (matches && matches.length > 0) {
+      // Return the first valid amount
+      for (const match of matches) {
+        const amount = validateAmount(match);
+        if (amount) return amount;
+      }
     }
   }
 
   return null;
+}
+
+/**
+ * Extract multiple amounts from message
+ * @param {string} message - Message string
+ * @returns {Array} Array of amounts
+ */
+function extractAllAmounts(message) {
+  const amounts = [];
+  const patterns = [
+    /(?:Rp|IDR)\s?[\d,.]+/gi,
+    /[\d,]+\.?\d*\s*(?:k|rb|ribu)/gi,
+    /\$[\d,]+\.?\d*/g,
+    /[\d,]+\.?\d*\s*(?:dollars?|usd)/gi,
+    /(?:amount|price|cost):\s*(?:Rp|\$)?[\d,]+\.?\d*/gi,
+    /\d+(?:,\d{3})*(?:\.\d+)?(?=\s|$|[,.])/g
+  ];
+
+  for (const pattern of patterns) {
+    const matches = message.match(pattern);
+    if (matches) {
+      for (const match of matches) {
+        const amount = validateAmount(match);
+        if (amount && !amounts.includes(amount)) {
+          amounts.push(amount);
+        }
+      }
+    }
+  }
+
+  return amounts.sort((a, b) => a - b); // Return smallest first
 }
 
 /**
@@ -401,5 +435,6 @@ module.exports = {
   parseViewFilters,
   parseReportMonth,
   parseLimitParams,
-  extractAmount
+  extractAmount,
+  extractAllAmounts
 };

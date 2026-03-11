@@ -73,32 +73,16 @@ async function handleAddExpense(user, message) {
   if (process.env.OPENROUTER_API_KEY) {
     try {
       aiResult = await aiParser.extractAllTransactions(message);
+
+      // Debug: log AI result
+      console.log('[AI Parser] Result:', JSON.stringify(aiResult));
     } catch (error) {
       console.error('AI parser failed, falling back to rule-based NLP:', error.message);
-      const entities = nlp.extractEntities(message);
-      aiResult = {
-        transactions: entities.amount ? [{
-          amount: entities.amount,
-          description: entities.description,
-          category: entities.category,
-          date: entities.date ? entities.date.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-          notes: entities.notes,
-          transactionType: entities.transactionType
-        }] : []
-      };
+      aiResult = buildFallbackTransactions(message);
     }
   } else {
-    const entities = nlp.extractEntities(message);
-    aiResult = {
-      transactions: entities.amount ? [{
-        amount: entities.amount,
-        description: entities.description,
-        category: entities.category,
-        date: entities.date ? entities.date.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        notes: entities.notes,
-        transactionType: entities.transactionType
-      }] : []
-    };
+    // No AI key - use rule-based with multiple amount support
+    aiResult = buildFallbackTransactions(message);
   }
 
   const transactions = aiResult.transactions || [];
@@ -132,6 +116,68 @@ async function handleAddExpense(user, message) {
 /**
  * Save a single transaction
  */
+/**
+ * Build transactions using rule-based NLP (supports multiple amounts)
+ */
+function buildFallbackTransactions(message) {
+  const amounts = nlp.extractAllAmounts(message);
+
+  if (amounts.length === 0) {
+    return { transactions: [] };
+  }
+
+  const entities = nlp.extractEntities(message);
+  const today = new Date().toISOString().split('T')[0];
+
+  // If multiple amounts, try to split by "and" or ","
+  if (amounts.length > 1) {
+    // Split message by " and " or ", " to get parts
+    const parts = message.split(/\s+and\s+|,\s+/i);
+
+    const transactions = [];
+    for (let i = 0; i < amounts.length && i < parts.length; i++) {
+      const part = parts[i];
+      // Extract description from this part
+      const partEntities = nlp.extractEntities(part);
+
+      transactions.push({
+        amount: amounts[i],
+        description: partEntities.description || `Expense ${i + 1}`,
+        category: partEntities.category || 'Other',
+        date: today,
+        notes: null,
+        transactionType: partEntities.transactionType || 'debit'
+      });
+    }
+
+    // If we have more amounts than parts, add remaining with generic descriptions
+    for (let i = parts.length; i < amounts.length; i++) {
+      transactions.push({
+        amount: amounts[i],
+        description: `Expense ${i + 1}`,
+        category: 'Other',
+        date: today,
+        notes: null,
+        transactionType: 'debit'
+      });
+    }
+
+    return { transactions };
+  }
+
+  // Single amount - use original logic
+  return {
+    transactions: [{
+      amount: entities.amount,
+      description: entities.description,
+      category: entities.category,
+      date: entities.date ? entities.date.toISOString().split('T')[0] : today,
+      notes: entities.notes,
+      transactionType: entities.transactionType
+    }]
+  };
+}
+
 async function saveTransaction(user, transaction) {
   // Get or create category
   let category;
