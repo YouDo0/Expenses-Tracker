@@ -89,34 +89,36 @@ function extractAmount(message) {
 }
 
 /**
- * Extract multiple amounts from message
+ * Extract multiple amounts from message (preserves order)
  * @param {string} message - Message string
- * @returns {Array} Array of amounts
+ * @returns {Array} Array of amounts in order of appearance
  */
 function extractAllAmounts(message) {
   const amounts = [];
-  const patterns = [
+  const seen = new Set();
+
+  // Pattern that matches any amount format
+  const allPatterns = [
     /(?:Rp|IDR)\s?[\d,.]+/gi,
     /[\d,]+\.?\d*\s*(?:k|rb|ribu)/gi,
     /\$[\d,]+\.?\d*/g,
-    /[\d,]+\.?\d*\s*(?:dollars?|usd)/gi,
-    /(?:amount|price|cost):\s*(?:Rp|\$)?[\d,]+\.?\d*/gi,
-    /\d+(?:,\d{3})*(?:\.\d+)?(?=\s|$|[,.])/g
+    /[\d,]+\.?\d*\s*(?:dollars?|usd)/gi
   ];
 
-  for (const pattern of patterns) {
+  for (const pattern of allPatterns) {
     const matches = message.match(pattern);
     if (matches) {
       for (const match of matches) {
         const amount = validateAmount(match);
-        if (amount && !amounts.includes(amount)) {
+        if (amount && !seen.has(amount)) {
+          seen.add(amount);
           amounts.push(amount);
         }
       }
     }
   }
 
-  return amounts.sort((a, b) => a - b); // Return smallest first
+  return amounts; // Return in order of appearance
 }
 
 /**
