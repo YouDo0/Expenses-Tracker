@@ -68,6 +68,26 @@ async function sendMessage(userId, message) {
 }
 
 /**
+ * Send document (file) to user
+ * @param {string} userId - User's chat ID
+ * @param {Buffer|string} buffer - File buffer or path
+ * @param {string} filename - File name
+ * @param {string} caption - Optional caption
+ */
+async function sendDocument(userId, buffer, filename, caption = '') {
+  if (!bot) {
+    throw new Error('Bot not initialized');
+  }
+
+  try {
+    await bot.sendDocument(userId, buffer, { filename }, { parse_mode: 'HTML' });
+  } catch (error) {
+    console.error(`Failed to send document to ${userId}:`, error.message);
+    throw error;
+  }
+}
+
+/**
  * Get bot state
  * @returns {string} Bot state
  */
@@ -89,6 +109,7 @@ async function stop() {
 module.exports = {
   initialize,
   sendMessage,
+  sendDocument,
   getState,
   stop
 };

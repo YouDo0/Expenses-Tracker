@@ -36,7 +36,13 @@ function formatCurrency(amount, showSymbol = true) {
  * @returns {string} Formatted date string
  */
 function formatDate(date) {
+  if (!date) return '';
   const d = new Date(date);
+  // Handle date-only strings (YYYY-MM-DD) to avoid timezone shift
+  const dateStr = date.toString();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return dateStr;
+  }
   return d.toISOString().split('T')[0];
 }
 

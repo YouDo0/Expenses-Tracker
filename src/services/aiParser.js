@@ -32,7 +32,7 @@ For each expense, extract:
 - amount: numeric value only (no currency symbols)
 - description: short clear description
 - category: one of [${VALID_CATEGORIES.join(', ')}]
-- date: YYYY-MM-DD format (if not specified, use today's date 2026-03-10)
+- date: YYYY-MM-DD format (if not specified, use today's date ${new Date().toISOString().split('T')[0]})
 - notes: extra context beyond description, or null if none
 - transactionType: "debit" for expenses, "credit" for income
 
@@ -147,7 +147,7 @@ async function extractEntities(message) {
   const transaction = aiResult.transactions[0];
   return {
     amount: transaction.amount,
-    date: transaction.date ? new Date(transaction.date) : new Date(),
+    date: transaction.date ? new Date(transaction.date + 'T00:00:00') : new Date(),
     category: transaction.category,
     description: transaction.description,
     transactionType: transaction.transactionType,

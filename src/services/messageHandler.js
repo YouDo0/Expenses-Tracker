@@ -10,6 +10,7 @@ const reportGenerator = require('./reportGenerator');
 const confirmationStore = require('./confirmationStore');
 const { formatExpenseList, formatCategoryList, formatCurrency, formatDate, formatBalanceSummary, formatLimitNotification } = require('../utils/formatters');
 const { validateCategoryName, validateExpenseId, validateAmount } = require('../utils/validators');
+const { sendDocument } = require('../telegram/bot');
 
 /**
  * Process incoming message
@@ -42,6 +43,8 @@ async function processMessage(userId, message) {
         return await handleDeleteExpense(user, message);
       case 'generate_report':
         return await handleGenerateReport(user, message);
+      case 'export_report':
+        return await handleExportReport(user, message);
       case 'add_category':
         return await handleAddCategory(user, message);
       case 'delete_category':
@@ -179,10 +182,17 @@ function buildFallbackTransactions(message) {
 }
 
 async function saveTransaction(user, transaction) {
-  // Get or create category
+  // Get or create category - first check if category already exists for this user
   let category;
   if (transaction.category) {
-    category = await Category.getOrCreate(user.id, transaction.category);
+    // Try to find existing category (case-insensitive match)
+    const existingCategory = await Category.findByName(user.id, transaction.category);
+    if (existingCategory) {
+      category = existingCategory;
+    } else {
+      // Only create new category if no match found
+      category = await Category.getOrCreate(user.id, transaction.category);
+    }
   } else {
     category = await Category.getUncategorized(user.id);
   }
@@ -191,7 +201,7 @@ async function saveTransaction(user, transaction) {
   const expense = await Expense.create({
     userId: user.id,
     categoryId: category ? category.id : null,
-    date: new Date(transaction.date),
+    date: transaction.date ? new Date(transaction.date + 'T00:00:00') : new Date(),
     description: transaction.description,
     amount: transaction.amount,
     transactionType: transaction.transactionType || 'debit',
@@ -294,6 +304,33 @@ async function handleConfirmation(chatId, response) {
   }
 
   const responseLower = response.toLowerCase().trim();
+
+  // Handle export_report confirmation
+  if (pending.type === 'export_report') {
+    // Check for cancel
+    if (responseLower === 'cancel' || responseLower === 'batal') {
+      confirmationStore.delete(chatId);
+      return "❌ Export cancelled.";
+    }
+
+    // Try to parse month from response
+    const { year, month } = nlp.parseReportMonth(response);
+    if (month && year) {
+      confirmationStore.delete(chatId);
+      const monthName = new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      try {
+        const buffer = await reportGenerator.generateXlsxReport(chatId, year, month);
+        const filename = `expenses_report_${year}_${month}.xlsx`;
+        await sendDocument(chatId, buffer, filename, `📊 Monthly Report - ${monthName}`);
+        return null; // Message already sent via sendDocument
+      } catch (error) {
+        console.error('Error generating xlsx report:', error);
+        return `✗ Error generating report: ${error.message}`;
+      }
+    }
+
+    return `Please specify a valid month.\n\nExample: "Export report January 2026" or "Export report March"\n\nOr type "cancel" to cancel.`;
+  }
 
   // Check for "yes" confirmation
   if (responseLower === 'yes' || responseLower === 'y' || responseLower === 'confirm' || responseLower === 'save') {
@@ -411,7 +448,7 @@ async function handleViewExpenses(user, message) {
     }
   }
 
-  // Determine if no date filters are specified - use ascending order with default limit 10
+  // Determine if no date filters are specified - use descending order (newest first) with default limit 10
   const hasDateFilters = filters.startDate !== null || filters.endDate !== null;
 
   const expenses = await Expense.findByUser(user.id, {
@@ -419,7 +456,7 @@ async function handleViewExpenses(user, message) {
     endDate: filters.endDate,
     categoryId: categoryId,
     limit: hasDateFilters ? filters.limit : 10,
-    orderAsc: !hasDateFilters
+    orderAsc: false
   });
 
   if (expenses.length === 0) {
@@ -525,6 +562,39 @@ async function handleDeleteExpense(user, message) {
 async function handleGenerateReport(user, message) {
   const { year, month } = nlp.parseReportMonth(message);
   return await reportGenerator.generateMonthlyReport(user.id, year, month);
+}
+
+/**
+ * Handle export report intent (xlsx)
+ */
+async function handleExportReport(user, message) {
+  const messageLower = message.toLowerCase();
+
+  // Check if specific month is mentioned
+  const { year, month } = nlp.parseReportMonth(message);
+
+  // If user wants to export a specific month, generate and send directly
+  // If no specific month, ask user to choose
+  if (month && year) {
+    const monthName = new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    try {
+      const buffer = await reportGenerator.generateXlsxReport(user.id, year, month);
+      const filename = `expenses_report_${year}_${month}.xlsx`;
+      await sendDocument(user.chat_id, buffer, filename, `📊 Monthly Report - ${monthName}`);
+      return null; // Message already sent via sendDocument
+    } catch (error) {
+      console.error('Error generating xlsx report:', error);
+      return `✗ Error generating report: ${error.message}`;
+    }
+  }
+
+  // Ask user to specify month - use confirmation store for multi-step flow
+  confirmationStore.set(user.chat_id, {
+    type: 'export_report',
+    summary: 'Please specify the month for export.\n\nExample: "Export report January 2026" or "Export report for March"'
+  });
+
+  return `📊 <b>Export Monthly Report (XLSX)</b>\n\nPlease specify the month you want to export:\n\n• "Export report January 2026"\n• "Export report March"\n• "Export report for February 2026"\n\nOr type "cancel" to cancel.`;
 }
 
 /**
@@ -675,6 +745,11 @@ function getHelpMessage() {
 📊 <b>LAPORAN BULANAN:</b>
    Show monthly report
    Generate report for January
+
+📥 <b>EXPORT LAPORAN (XLSX):</b>
+   Export report
+   Export report January 2026
+   Download report for March
 
 🏷️ <b>KATEGORI:</b>
    Add category Travel

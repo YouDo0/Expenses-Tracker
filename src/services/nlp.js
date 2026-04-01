@@ -273,6 +273,11 @@ function recognizeIntent(message) {
     return 'generate_report';
   }
 
+  // Export report (xlsx)
+  if (/\b(export|download).*\breport\b/i.test(messageLower)) {
+    return 'export_report';
+  }
+
   // View balance
   if (/\b(balance|saldo)\b/i.test(messageLower)) {
     return 'view_balance';
