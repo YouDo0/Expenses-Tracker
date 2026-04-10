@@ -80,7 +80,7 @@ async function sendDocument(userId, buffer, filename, caption = '') {
   }
 
   try {
-    await bot.sendDocument(userId, buffer, { filename }, { parse_mode: 'HTML' });
+    await bot.sendDocument(userId, buffer, { filename, caption });
   } catch (error) {
     console.error(`Failed to send document to ${userId}:`, error.message);
     throw error;
