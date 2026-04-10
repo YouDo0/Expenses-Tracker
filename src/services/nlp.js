@@ -268,14 +268,14 @@ function recognizeIntent(message) {
     return 'delete_expense';
   }
 
-  // Generate report
-  if (/\b(report|summary|laporan|ringkasan|monthly)\b/i.test(messageLower)) {
-    return 'generate_report';
-  }
-
   // Export report (xlsx)
   if (/\b(export|download).*\breport\b/i.test(messageLower)) {
     return 'export_report';
+  }
+
+  // Generate report
+  if (/\b(report|summary|laporan|ringkasan|monthly)\b/i.test(messageLower)) {
+    return 'generate_report';
   }
 
   // View balance
