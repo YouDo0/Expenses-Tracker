@@ -80,7 +80,7 @@ async function sendDocument(userId, buffer, filename, caption = '') {
   }
 
   try {
-    await bot.sendDocument(userId, buffer, { filename, caption });
+    await bot.sendDocument(userId, buffer, { filename, caption, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   } catch (error) {
     console.error(`Failed to send document to ${userId}:`, error.message);
     throw error;
