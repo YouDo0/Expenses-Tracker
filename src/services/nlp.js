@@ -134,8 +134,8 @@ function extractDate(message) {
     return parsed;
   }
 
-  // Default to today
-  return new Date();
+  // No date found - let database default to CURRENT_DATE
+  return null;
 }
 
 /**

@@ -101,24 +101,41 @@ async function findByMonth(userId, year, month) {
  */
 async function create(data) {
   const { userId, categoryId, date, description, amount, transactionType, notes } = data;
-  
-  const result = await db.query(
-    `INSERT INTO expenses (user_id, category_id, date, description, amount, transaction_type, notes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING *`,
-    [userId, categoryId, date, description, amount, transactionType, notes]
-  );
-  
-  // Get category name
-  const expense = result.rows[0];
-  if (categoryId) {
-    const catResult = await db.query('SELECT name FROM categories WHERE id = $1', [categoryId]);
-    expense.category_name = catResult.rows[0]?.name || 'Uncategorized';
+
+  // Only include date if explicitly provided, otherwise let DB default to CURRENT_DATE
+  if (date) {
+    const result = await db.query(
+      `INSERT INTO expenses (user_id, category_id, date, description, amount, transaction_type, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [userId, categoryId, date, description, amount, transactionType, notes]
+    );
+    // Get category name
+    const expense = result.rows[0];
+    if (categoryId) {
+      const catResult = await db.query('SELECT name FROM categories WHERE id = $1', [categoryId]);
+      expense.category_name = catResult.rows[0]?.name || 'Uncategorized';
+    } else {
+      expense.category_name = 'Uncategorized';
+    }
+    return expense;
   } else {
-    expense.category_name = 'Uncategorized';
+    const result = await db.query(
+      `INSERT INTO expenses (user_id, category_id, description, amount, transaction_type, notes)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [userId, categoryId, description, amount, transactionType, notes]
+    );
+    // Get category name
+    const expense = result.rows[0];
+    if (categoryId) {
+      const catResult = await db.query('SELECT name FROM categories WHERE id = $1', [categoryId]);
+      expense.category_name = catResult.rows[0]?.name || 'Uncategorized';
+    } else {
+      expense.category_name = 'Uncategorized';
+    }
+    return expense;
   }
-  
-  return expense;
 }
 
 /**

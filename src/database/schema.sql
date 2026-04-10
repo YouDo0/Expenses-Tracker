@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS expenses (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
-    date DATE NOT NULL,
+    date DATE DEFAULT CURRENT_DATE,
     description TEXT NOT NULL,
     amount DECIMAL(10, 2) NOT NULL,
     transaction_type VARCHAR(10) CHECK (transaction_type IN ('debit', 'credit')) NOT NULL,
