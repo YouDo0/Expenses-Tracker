@@ -80,7 +80,18 @@ async function sendDocument(userId, buffer, filename, caption = '') {
   }
 
   try {
-    await bot.sendDocument(userId, buffer, { filename, caption, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    // If buffer, write to temp file and send path - more reliable for xlsx
+    if (Buffer.isBuffer(buffer)) {
+      const path = require('path');
+      const os = require('os');
+      const fs = require('fs');
+      const tempFile = path.join(os.tmpdir(), filename);
+      fs.writeFileSync(tempFile, buffer);
+      await bot.sendDocument(userId, tempFile, { caption, filename, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      fs.unlinkSync(tempFile); // Clean up
+    } else {
+      await bot.sendDocument(userId, buffer, { caption, filename, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    }
   } catch (error) {
     console.error(`Failed to send document to ${userId}:`, error.message);
     throw error;
